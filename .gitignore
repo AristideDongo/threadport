@@ -2,3 +2,4 @@ node_modules/
 dist/
 coverage/
 .threadport/
+THREADPORT_PROJECT_PROMPT.md
