@@ -7,7 +7,7 @@
     "dist/"
   ],
   "bin": {
-    "threadport": "./dist/interfaces/cli/main.js"
+    "threadport": "dist/interfaces/cli/main.js"
   },
   "engines": {
     "node": ">=24"
