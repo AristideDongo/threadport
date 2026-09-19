@@ -11,6 +11,13 @@ ThreadPort conserve le contexte d'une tâche de développement dans le projet et
 Prérequis : Node.js **24+**, npm et, pour les fonctions Git, un dépôt Git. Installez Claude Code et/ou Codex CLI dans `PATH` pour lancer ces agents.
 
 ```bash
+npm install --global threadport
+threadport --help
+```
+
+Pour contribuer depuis les sources :
+
+```bash
 git clone https://github.com/AristideDongo/threadport.git
 cd threadport
 npm install
@@ -19,7 +26,7 @@ npm link
 threadport --help
 ```
 
-`npm link` rend la commande disponible localement. Après une modification du code, relancez `npm run build`. Pour développer sans installation globale : `npm run dev -- --help`.
+`npm link` rend la commande disponible localement. Après une modification du code, relancez `npm run build`. Pour développer sans installation globale : `npm run dev -- --help`. Le dépôt GitHub est privé ; l'installation depuis npm ne demande pas d'accès au dépôt.
 
 ## Parcours rapide : Claude → Codex
 
