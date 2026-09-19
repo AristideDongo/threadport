@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readConfig } from './config.js';
 
 const defaultExcludes = ['.env', '.env.*', '*.pem', '*.key', 'credentials.json', 'secrets/**', '.threadport/**'];
 
@@ -11,6 +12,6 @@ export function loadExcludes(cwd: string): string[] {
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
-  return [...defaultExcludes, ...custom];
+  return [...defaultExcludes, ...readConfig(cwd).privacy.exclude, ...custom];
 }
 

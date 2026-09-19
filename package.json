@@ -1,6 +1,6 @@
 {
   "name": "threadport",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -16,10 +16,13 @@
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "commander": "^14.0.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "commander": "^14.0.0",
+    "js-tiktoken": "^1.0.21",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.13.6",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^5.0.1"

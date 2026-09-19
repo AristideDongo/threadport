@@ -23,3 +23,14 @@ it('persists sessions and recovers interrupted runs after reopening', () => {
     second.close();
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+it('keeps a run active while its owner process is alive', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'threadport-live-'));
+  const store = new SqliteStore(join(dir, 'db.sqlite'));
+  try {
+    store.createSession({ id: 's2', title: 'Live', status: 'active', createdAt: '2026-01-01', updatedAt: '2026-01-01' });
+    store.addRun({ id: 'r2', sessionId: 's2', agentId: 'codex', status: 'running', startedAt: '2026-01-01', endedAt: null, exitCode: null, ownerPid: process.pid });
+    expect(store.recoverRuns('2026-01-02')).toBe(0);
+    expect(store.listRuns('s2')[0]?.status).toBe('running');
+  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+});

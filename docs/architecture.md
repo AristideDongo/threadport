@@ -1,29 +1,31 @@
-# Architecture du MVP
-
-## Portée et choix
-
-Le premier flux utilisable est `init → new → run claude → switch codex → resume → timeline`. TypeScript strict, Node 24, Commander pour la CLI et `node:sqlite` pour SQLite. Le module SQLite de Node évite une dépendance native supplémentaire; la version de Node est donc une contrainte explicite. Vitest teste le domaine et les flux. Le TUI, les forks et la comparaison sont reportés après validation de ce flux.
+# Architecture ThreadPort 0.2
 
 ## Dépendances
 
-`interfaces/cli → application → domain`. `infrastructure` implémente les ports définis dans `application`. Le domaine ne contient ni nom de fournisseur ni import de stockage, terminal ou Git. La composition des dépendances se fait dans la CLI.
+`interfaces → application → domain`. `infrastructure` implémente les ports de l'application. La composition se fait dans la CLI ; les adapters fournisseur et Git ne sont jamais importés par le domaine.
 
-## Données
+## Persistance
 
-Une base SQLite par projet vit dans `.threadport/threadport.sqlite`. Le schéma versionné par `PRAGMA user_version` contient `sessions`, `runs`, `events`, `decisions` et `snapshots`. Les événements sont append-only; les sessions et runs gardent leur état courant pour une lecture rapide. Le schéma est versionné; les snapshots Git JSON sont validés à la lecture. Un ancien run marqué actif après un crash est clos au prochain lancement avec `interrupted`.
+Une base SQLite par projet vit dans `.threadport/threadport.sqlite`. `PRAGMA user_version` pilote les migrations jusqu'à la version 5. Les tables contiennent sessions, runs, événements, décisions, snapshots, enregistrements de travail, forks et un index FTS5. SQLite fonctionne en WAL avec un délai d'attente pour les écritures concurrentes. Les runs portent le PID du processus propriétaire, l'éventuel identifiant du fork et l'identifiant de session du fournisseur. Après un crash, seuls les runs dont le processus n'est plus vivant sont marqués interrompus. Les événements bruts restent disponibles après la production d'un résumé.
 
-## Adapters et capture
+L'export JSON version 1 contient l'historique d'une session sans les chemins locaux de ses forks. L'import valide l'archive, remappe les identifiants et insère l'ensemble dans une transaction ; il laisse la base d'origine intacte.
 
-Un adapter déclare son identifiant, son exécutable, ses capacités et construit ses arguments. La CLI garde le terminal connecté à l'agent et attend son code de sortie. ThreadPort enregistre l'heure, l'agent et les métadonnées Git avant et après (sans conserver le contenu des diffs), mais ne prétend pas lire les conversations privées ni les appels d'outils internes. L'arrêt brutal du processus parent peut laisser un run ouvert; la récupération le marque interrompu au prochain accès.
+## Collecte fournisseur
 
-## Contexte et confidentialité
+Le lancement interactif passe le pack par un fichier temporaire et laisse le terminal à l'agent. Le mode structuré lance `codex exec --json` ou `claude -p --output-format stream-json --verbose`, interprète les événements utiles et conserve les données normalisées, pas le flux brut. Les sorties fournisseur peuvent changer : leur conversion est isolée dans `structured-agent.ts`. Un run porte l'ID de session fournisseur lorsqu'il a été annoncé ; `continue` s'en sert pour une reprise native.
 
-Le pack contient objectif, contraintes, décisions, événements récents et état Git. Les modes `minimal`, `standard`, `deep`, `full` augmentent progressivement le budget de caractères. Le texte est passé à l'agent via un fichier temporaire à permissions restrictives, puis supprimé. Les chemins sensibles et les lignes ressemblant à des secrets sont exclus du pack. `.threadportignore` ajoute des motifs simples de type glob. Le diff Git est plafonné avant assemblage et les valeurs sensibles sont masquées. Il reste prudent de revoir un pack avec `threadport context` avant transmission.
+## Packs de contexte
 
-## Git et évolution
+Le pack contient objectif, dernier résumé, mémoire de projet, contraintes, tâches ouvertes, erreurs, décisions, tests, notes, fichiers pertinents, artefacts, état Git et événements récents. Un diff peut être ajouté en mode `deep` ou `full`. Chaque section indique sa provenance. Les budgets 500/1 500/4 000/10 000 sont mesurés avec `cl100k_base`, qui sert de référence entre fournisseurs. Les sections sont insérées par priorité ; celles qui dépassent le budget sont listées dans l'explication. Les chemins exclus par défaut, `.threadport/config.json` ou `.threadportignore` ne sont pas transmis ; la détection de secrets reste heuristique.
 
-L'adapter Git est en lecture seule et n'exécute ni commit ni reset. Si le dossier n'est pas un dépôt, l'état Git est absent et les autres commandes fonctionnent. Les forks devront utiliser des worktrees explicites, avec contrôle des modifications non enregistrées. La recherche, la compression et le TUI pourront lire les mêmes ports sans déplacer la logique métier.
+## Git, forks et comparaison
 
-## Risques et feuille de route
+La lecture Git utilise `status --porcelain=v1 -z` pour les chemins particuliers. Les snapshots conservent les métadonnées, pas les diffs. Un fork exige un arbre de travail propre, crée une branche et un worktree à partir du même `HEAD`, et enregistre son lien avec la session. Les runs et tests faits dans un fork portent son ID. `compare` rapporte les mesures disponibles et peut afficher des diffs filtrés. `fork remove` refuse un worktree modifié et conserve la branche.
 
-Le contenu conversationnel n'est pas capturé automatiquement; les décisions et notes de passation sont saisies explicitement. Certains CLI fournisseurs changent leurs options, d'où leur isolation dans les adapters. La prochaine étape est la capture explicite de notes, tests et erreurs; viennent ensuite forks isolés, comparaison, recherche et TUI.
+## Interfaces
+
+La CLI, le menu TUI, l'API HTTP locale et MCP `stdio` utilisent les mêmes cas d'usage. L'API n'écoute que `127.0.0.1` et exige un jeton temporaire. API et MCP exposent lectures et écritures bornées pour notes, tâches et décisions. Les manifests de plugins ajoutent des adapters d'agents CLI validés à l'entrée.
+
+## Risques et prochaines améliorations
+
+La capture interactive détaillée dépendrait de hooks ou de protocoles fournisseur plus profonds. Une correspondance complète entre événements Claude et Codex exige des tests réels réguliers. Le compteur de tokens n'est pas exact pour tous les modèles. Les API/TUI et les types de plugins peuvent être étendus lorsque les flux de base auront davantage de tests de compatibilité et de résistance aux interruptions.

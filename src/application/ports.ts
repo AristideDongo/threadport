@@ -1,6 +1,7 @@
-import type { AgentRun, Decision, GitState, Session, Snapshot, TimelineEvent } from '../domain/model.js';
+import type { AgentRun, Decision, Fork, GitState, SearchHit, Session, Snapshot, TimelineEvent, WorkRecord } from '../domain/model.js';
 
 export interface SessionStore {
+  transaction<T>(work: () => T): T;
   createSession(session: Session): void;
   updateSession(session: Session): void;
   getSession(id: string): Session | null;
@@ -12,10 +13,21 @@ export interface SessionStore {
   listDecisions(sessionId: string): Decision[];
   addRun(run: AgentRun): void;
   updateRun(run: AgentRun): void;
+  setProviderSessionId(runId: string, providerSessionId: string): void;
   listRuns(sessionId: string): AgentRun[];
   recoverRuns(now: string): number;
   addSnapshot(snapshot: Snapshot): void;
   latestSnapshot(sessionId: string): Snapshot | null;
+  listSnapshots(sessionId: string): Snapshot[];
+  addRecord(record: WorkRecord): void;
+  updateRecord(record: WorkRecord): void;
+  listRecords(sessionId: string): WorkRecord[];
+  listProjectMemory(): WorkRecord[];
+  getRecord(id: string): WorkRecord | null;
+  search(query: string, limit: number): SearchHit[];
+  addFork(fork: Fork): void;
+  deleteFork(id: string): void;
+  listForks(sessionId: string): Fork[];
 }
 
 export interface GitReader {
@@ -28,9 +40,14 @@ export interface AgentAdapter {
   readonly command: string;
   readonly capabilities: readonly string[];
   args(contextFile: string): string[];
+  structuredArgs?(contextFile: string): string[];
+  resumeArgs?(providerSessionId: string, contextFile: string): string[];
 }
 
 export interface AgentRunner {
   available(command: string): boolean;
   run(command: string, args: string[], cwd: string): Promise<number>;
 }
+
+export interface CommandResult { code: number; output: string; }
+export interface CommandExecutor { execute(command: string, args: string[], cwd: string): Promise<CommandResult>; }

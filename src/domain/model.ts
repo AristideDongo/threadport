@@ -1,6 +1,38 @@
 export type SessionStatus = 'active' | 'paused' | 'done';
 export type RunStatus = 'running' | 'completed' | 'failed' | 'interrupted';
 export type ContextMode = 'minimal' | 'standard' | 'deep' | 'full';
+export type RecordKind = 'note' | 'task' | 'error' | 'command' | 'test' | 'summary' | 'memory' | 'usage' | 'file' | 'artifact' | 'constraint';
+export type RecordStatus = 'open' | 'done' | 'failed' | 'info';
+
+export interface WorkRecord {
+  id: string;
+  sessionId: string;
+  runId: string | null;
+  kind: RecordKind;
+  title: string;
+  body: string;
+  status: RecordStatus;
+  createdAt: string;
+  forkId?: string | null;
+}
+
+export interface SearchHit {
+  source: 'session' | 'decision' | 'record';
+  id: string;
+  sessionId: string;
+  title: string;
+  snippet: string;
+}
+
+export interface Fork {
+  id: string;
+  sessionId: string;
+  agentId: string;
+  branch: string;
+  path: string;
+  baseHead: string;
+  createdAt: string;
+}
 
 export interface Session {
   id: string;
@@ -18,6 +50,9 @@ export interface AgentRun {
   startedAt: string;
   endedAt: string | null;
   exitCode: number | null;
+  ownerPid?: number | null;
+  forkId?: string | null;
+  providerSessionId?: string | null;
 }
 
 export interface TimelineEvent {
