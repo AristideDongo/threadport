@@ -1,4 +1,4 @@
-# Architecture ThreadPort 0.2
+# Architecture ThreadPort 0.3
 
 ## Dépendances
 
@@ -24,7 +24,7 @@ La lecture Git utilise `status --porcelain=v1 -z` pour les chemins particuliers.
 
 ## Interfaces
 
-La CLI, le menu TUI, l'API HTTP locale et MCP `stdio` utilisent les mêmes cas d'usage. L'API n'écoute que `127.0.0.1` et exige un jeton temporaire. API et MCP exposent lectures et écritures bornées pour notes, tâches et décisions. Les manifests de plugins ajoutent des adapters d'agents CLI validés à l'entrée.
+La CLI, le menu TUI, l'API HTTP locale et MCP `stdio` utilisent les mêmes cas d'usage. L'API n'écoute que `127.0.0.1` et exige un jeton temporaire. API et MCP exposent les sessions, les runs, les notes, les tâches, les décisions et les résumés. Les manifests de plugins ajoutent des adapters d'agents CLI validés à l'entrée.
 
 ## Risques et prochaines améliorations
 

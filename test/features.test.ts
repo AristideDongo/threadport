@@ -10,7 +10,7 @@ import { SessionTransfer } from '../src/application/transfer.js';
 import { GitCliReader } from '../src/infrastructure/git.js';
 import { GitWorktrees } from '../src/infrastructure/git-worktrees.js';
 import { SqliteStore } from '../src/infrastructure/sqlite-store.js';
-import { interpretAgentEvent } from '../src/infrastructure/structured-agent.js';
+import { interpretAgentEvent, interpretAgentEvents } from '../src/infrastructure/structured-agent.js';
 import { readConfig, setDefaultMode } from '../src/infrastructure/config.js';
 import { loadExcludes } from '../src/infrastructure/privacy.js';
 
@@ -60,6 +60,12 @@ it('normalizes provider event streams without storing raw JSON', () => {
   expect(interpretAgentEvent('codex', { type: 'item.completed', item: { type: 'command_execution', command: 'npm test', aggregated_output: 'ok' } })?.kind).toBe('command');
   expect(interpretAgentEvent('claude', { type: 'result', result: 'Done', is_error: false })?.body).toBe('Done');
   expect(interpretAgentEvent('claude', { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test' } }] } })?.title).toBe('npm test');
+  expect(interpretAgentEvents('claude', { type: 'assistant', message: { content: [
+    { type: 'text', text: 'Tests pass' },
+    { type: 'tool_use', name: 'Bash', input: { command: 'npm test' } },
+  ] } }).map((event) => event.kind)).toEqual(['message', 'command']);
+  expect(interpretAgentEvents('claude', { type: 'result', result: 'Done', usage: { input_tokens: 12 } }).map((event) => event.kind)).toEqual(['message', 'usage']);
+  expect(interpretAgentEvent('codex', { type: 'item.completed', item: { type: 'file_change', changes: [{ path: 'src/main.ts', kind: 'update' }] } })?.body).toContain('src/main.ts');
 });
 
 it('applies project configuration to privacy exclusions', () => {

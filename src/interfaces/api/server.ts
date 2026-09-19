@@ -8,6 +8,7 @@ import { readConfig } from '../../infrastructure/config.js';
 import { z } from 'zod';
 
 const recordInput = z.object({ title: z.string().min(1).max(200), body: z.string().max(20_000).optional() });
+const idInput = z.object({ id: z.string().min(1).max(200) });
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -48,6 +49,22 @@ export async function serveApi(app: ThreadPort, cwd: string, port: number): Prom
         })();
         return;
       }
+      if (request.method === 'POST' && ['/v1/sessions', '/v1/sessions/open', '/v1/tasks/complete'].includes(url.pathname)) {
+        void (async () => {
+          try {
+            const input = await readJson(request);
+            if (url.pathname === '/v1/sessions') {
+              const { title } = recordInput.parse(input);
+              respond(response, 201, app.newSession(title));
+            } else {
+              const { id } = idInput.parse(input);
+              respond(response, 200, url.pathname === '/v1/sessions/open' ? app.open(id) : app.completeTask(id));
+            }
+          } catch (error: unknown) { respond(response, error instanceof Error && error.message.includes('trop volumineux') ? 413 : 400, { error: error instanceof Error ? error.message : String(error) }); }
+        })();
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/v1/summary') { respond(response, 201, app.summarize()); return; }
       if (request.method === 'GET' && url.pathname === '/v1/status') { respond(response, 200, { active: app.active() }); return; }
       if (request.method === 'GET' && url.pathname === '/v1/sessions') { respond(response, 200, { sessions: app.sessions() }); return; }
       if (request.method === 'GET' && url.pathname === '/v1/context') {
@@ -62,6 +79,9 @@ export async function serveApi(app: ThreadPort, cwd: string, port: number): Prom
       }
       if (request.method === 'GET' && url.pathname === '/v1/records') {
         const current = app.active(); respond(response, 200, { records: current ? app.records(current.id) : [] }); return;
+      }
+      if (request.method === 'GET' && url.pathname === '/v1/runs') {
+        const current = app.active(); respond(response, 200, { runs: current ? app.runs(current.id) : [] }); return;
       }
       if (request.method === 'GET' && url.pathname === '/v1/search') {
         respond(response, 200, { results: app.search(url.searchParams.get('q') ?? '') }); return;

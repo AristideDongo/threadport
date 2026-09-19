@@ -20,6 +20,7 @@ import { openMenu } from '../tui/menu.js';
 import { serveApi } from '../api/server.js';
 import { serveMcp } from '../mcp/server.js';
 import { StructuredAgentRunner } from '../../infrastructure/structured-agent.js';
+import { packageVersion } from '../../infrastructure/package-info.js';
 
 const cwd = process.cwd();
 const projectDir = join(cwd, '.threadport');
@@ -61,7 +62,7 @@ function contextMode(value: string) {
 }
 
 const cli = new Command();
-cli.name('threadport').description('La continuité locale de vos sessions entre agents IA.').version('0.1.0').showHelpAfterError();
+cli.name('threadport').description('La continuité locale de vos sessions entre agents IA.').version(packageVersion).showHelpAfterError();
 
 cli.command('init').description('Initialiser ThreadPort dans ce dossier').action(() => {
   if (existsSync(dbPath)) { console.log('✓ ThreadPort est déjà initialisé ici.'); return; }
@@ -278,7 +279,7 @@ cli.command('serve').description('Démarrer une API locale avec jeton temporaire
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Port invalide.');
   return serveApi(app, cwd, port);
 }));
-cli.command('mcp').description('Démarrer le serveur MCP stdio en lecture seule').action(async () => withProjectAsync((app) => serveMcp(app, cwd)));
+cli.command('mcp').description('Démarrer le serveur MCP stdio').action(async () => withProjectAsync((app) => serveMcp(app, cwd)));
 
 async function launch(agentId: string, options: { structured?: boolean }): Promise<void> {
   await withProjectAsync(async (app) => launchIn(app, agentId, cwd, options.structured === true));
@@ -305,7 +306,7 @@ async function launchIn(app: ThreadPort, agentId: string, workingDirectory: stri
           return adapter.structuredArgs(contextFile);
         },
       } : adapter;
-      const activeRunner = structured ? new StructuredAgentRunner((event) => {
+      const activeRunner = structured ? new StructuredAgentRunner(agentId, (event) => {
         if (event.kind === 'session') app.linkProviderSession(event.body);
         const kind = event.kind === 'error' ? 'error' : event.kind === 'command' ? 'command' : event.kind === 'usage' ? 'usage' : 'note';
         app.addRunRecord(kind, event.title || 'Agent event', event.body, event.kind === 'error' ? 'open' : 'info');

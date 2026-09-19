@@ -3,12 +3,15 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { ThreadPort } from '../../application/threadport.js';
 import { loadExcludes } from '../../infrastructure/privacy.js';
 import { readConfig } from '../../infrastructure/config.js';
+import { packageVersion } from '../../infrastructure/package-info.js';
 import { z } from 'zod';
 
 export async function serveMcp(app: ThreadPort, cwd: string): Promise<void> {
-  const server = new McpServer({ name: 'threadport', version: '0.2.0' });
+  const server = new McpServer({ name: 'threadport', version: packageVersion });
   server.registerTool('threadport_status', { description: 'Current local ThreadPort session' }, async () => ({ content: [{ type: 'text', text: JSON.stringify(app.active()) }] }));
   server.registerTool('threadport_sessions', { description: 'List local ThreadPort sessions' }, async () => ({ content: [{ type: 'text', text: JSON.stringify(app.sessions()) }] }));
+  server.registerTool('threadport_new_session', { description: 'Create and activate a session', inputSchema: { title: z.string().min(1).max(200) } }, async ({ title }) => ({ content: [{ type: 'text', text: JSON.stringify(app.newSession(title)) }] }));
+  server.registerTool('threadport_open_session', { description: 'Activate an existing session', inputSchema: { id: z.string().min(1).max(200) } }, async ({ id }) => ({ content: [{ type: 'text', text: JSON.stringify(app.open(id)) }] }));
   server.registerTool('threadport_context', { description: 'Current redacted context pack' }, async () => ({ content: [{ type: 'text', text: app.context(readConfig(cwd).context.defaultMode, loadExcludes(cwd)) }] }));
   server.registerTool('threadport_timeline', { description: 'Timeline of the current session' }, async () => {
     const current = app.active();
@@ -18,9 +21,19 @@ export async function serveMcp(app: ThreadPort, cwd: string): Promise<void> {
     const current = app.active();
     return { content: [{ type: 'text', text: JSON.stringify(current ? app.decisions(current.id) : []) }] };
   });
+  server.registerTool('threadport_records', { description: 'Records of the current session' }, async () => {
+    const current = app.active();
+    return { content: [{ type: 'text', text: JSON.stringify(current ? app.records(current.id) : []) }] };
+  });
+  server.registerTool('threadport_runs', { description: 'Agent runs of the current session' }, async () => {
+    const current = app.active();
+    return { content: [{ type: 'text', text: JSON.stringify(current ? app.runs(current.id) : []) }] };
+  });
   server.registerTool('threadport_search', { description: 'Search local ThreadPort memory', inputSchema: { query: z.string().min(1).max(200) } }, async ({ query }) => ({ content: [{ type: 'text', text: JSON.stringify(app.search(query)) }] }));
   server.registerTool('threadport_add_note', { description: 'Save a note in the current session', inputSchema: { title: z.string().min(1).max(200), body: z.string().max(20_000).optional() } }, async ({ title, body }) => ({ content: [{ type: 'text', text: JSON.stringify(app.addRecord('note', title, body ?? '')) }] }));
   server.registerTool('threadport_add_task', { description: 'Create an open task in the current session', inputSchema: { title: z.string().min(1).max(200) } }, async ({ title }) => ({ content: [{ type: 'text', text: JSON.stringify(app.addRecord('task', title, '', 'open')) }] }));
+  server.registerTool('threadport_complete_task', { description: 'Complete a task in the current session', inputSchema: { id: z.string().min(1).max(200) } }, async ({ id }) => ({ content: [{ type: 'text', text: JSON.stringify(app.completeTask(id)) }] }));
+  server.registerTool('threadport_summary', { description: 'Create a summary from recorded work', }, async () => ({ content: [{ type: 'text', text: JSON.stringify(app.summarize()) }] }));
   server.registerTool('threadport_add_decision', { description: 'Record a technical decision in the current session', inputSchema: { title: z.string().min(1).max(200), rationale: z.string().max(20_000).optional() } }, async ({ title, rationale }) => { app.decide(title, rationale ?? ''); return { content: [{ type: 'text', text: 'Decision recorded.' }] }; });
   await server.connect(new StdioServerTransport());
   await new Promise<void>((resolve) => process.stdin.once('end', resolve));

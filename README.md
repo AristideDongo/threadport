@@ -4,7 +4,7 @@
 
 ThreadPort conserve le contexte d'une tâche de développement dans le projet et le transmet à Claude Code, Codex ou un agent configuré localement. Chaque session possède une timeline, des décisions, des tâches, des notes, des résultats de tests, des exécutions d'agents et des captures Git. Les données restent dans une base SQLite locale.
 
-> **Version 0.2.0 — outil en développement.** Le parcours de transfert fonctionne. La collecte détaillée dépend du mode de lancement et des événements exposés par chaque fournisseur ; voir [limites actuelles](#limites-actuelles).
+> **Version 0.3.0.** Le transfert conserve les informations enregistrées dans la session et les événements exposés par les agents en mode structuré.
 
 ## Installation
 
@@ -14,19 +14,6 @@ Prérequis : Node.js **24+**, npm et, pour les fonctions Git, un dépôt Git. In
 npm install --global threadport
 threadport --help
 ```
-
-Pour contribuer depuis les sources :
-
-```bash
-git clone https://github.com/AristideDongo/threadport.git
-cd threadport
-npm install
-npm run build
-npm link
-threadport --help
-```
-
-`npm link` rend la commande disponible localement. Après une modification du code, relancez `npm run build`. Pour développer sans installation globale : `npm run dev -- --help`. Le dépôt GitHub est privé ; l'installation depuis npm ne demande pas d'accès au dépôt.
 
 ## Parcours rapide : Claude → Codex
 
@@ -136,9 +123,9 @@ threadport compare <id-claude> <id-codex> --diff
 
 ## Interfaces locales
 
-- `threadport tui` : menu clavier pour consulter et ouvrir les sessions, lire le contexte et la timeline, saisir notes et tâches.
-- `threadport serve --port 0` : API HTTP liée à `127.0.0.1`. La commande affiche son URL et un jeton Bearer temporaire. Lectures : `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/search?q=terme`. Écritures JSON : `POST /v1/notes`, `/v1/tasks`, `/v1/decisions`, `/v1/memory` avec `title` et éventuellement `body`.
-- `threadport mcp` : serveur MCP sur `stdio`. Outils de lecture : `threadport_status`, `threadport_sessions`, `threadport_context`, `threadport_timeline`, `threadport_decisions`, `threadport_search`. Outils d'écriture : `threadport_add_note`, `threadport_add_task`, `threadport_add_decision`. Le client MCP doit démarrer la commande avec la racine du projet comme dossier courant.
+- `threadport tui` : menu clavier pour consulter les sessions, le contexte, la timeline, les tâches et les runs ; ouvrir une session, rechercher, produire un résumé et gérer les notes et tâches.
+- `threadport serve --port 0` : API HTTP liée à `127.0.0.1`. La commande affiche son URL et un jeton Bearer temporaire. Lectures : `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/runs`, `/v1/search?q=terme`. Écritures JSON : `POST /v1/sessions`, `/v1/sessions/open`, `/v1/tasks/complete`, `/v1/summary`, `/v1/notes`, `/v1/tasks`, `/v1/decisions`, `/v1/memory`. Les créations utilisent `title`, l'ouverture et la clôture utilisent `id`.
+- `threadport mcp` : serveur MCP sur `stdio`. Les outils permettent de créer et d'ouvrir une session, lire le contexte, les événements, décisions, enregistrements et runs, rechercher, ajouter notes, tâches et décisions, terminer une tâche et produire un résumé. Le client MCP doit démarrer la commande avec la racine du projet comme dossier courant.
 
 ### Adapter d'agent local
 
@@ -169,28 +156,3 @@ private/**
 ```
 
 ThreadPort masque plusieurs formats courants de secrets avant de conserver des notes ou de transmettre un pack, mais cette détection reste heuristique. Vérifiez `threadport context --explain` avant un transfert sensible. Les agents lancés appliquent leurs propres règles d'accès aux données. L'API exige un jeton et reste locale ; un client MCP connecté peut lire le contexte et ajouter des informations à la session.
-
-## Architecture et tests
-
-```text
-src/domain/             Types et règles du modèle universel
-src/application/        Cas d'usage et ports
-src/infrastructure/     SQLite, Git, adapters, commandes et confidentialité
-src/interfaces/         CLI, TUI, API et MCP
-```
-
-Le domaine ne dépend d'aucun fournisseur. Les migrations SQLite sont versionnées ; la recherche utilise FTS5. Voir [l'architecture](docs/architecture.md) pour les décisions techniques.
-
-```bash
-npm run check
-npm test
-npm run build
-npm audit --audit-level=moderate
-```
-
-## Limites actuelles
-
-- Le mode interactif ne lit pas les conversations privées des agents. Le mode `--structured` collecte ce que leurs sorties JSON exposent ; les adaptations Claude/Codex reposent sur leurs formats actuels et doivent être vérifiées à chaque évolution des CLI.
-- Les résumés sont construits localement à partir des données enregistrées. Ils ne déduisent pas le raisonnement absent d'une session interactive.
-- Les tests automatiques couvrent les flux avec des doubles d'agent, les migrations SQLite et les forks Git. Les vrais services Claude et Codex ne sont pas exécutés par la suite de tests.
-- Le TUI est un menu simple ; l'API et MCP exposent les cas d'usage essentiels, et les plugins ajoutent uniquement des agents CLI. Ces interfaces peuvent être étendues sans déplacer la logique métier.
