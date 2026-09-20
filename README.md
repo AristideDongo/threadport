@@ -1,5 +1,10 @@
 # ThreadPort
 
+[![npm version](https://img.shields.io/npm/v/threadport.svg)](https://www.npmjs.com/package/threadport)
+[![CI](https://github.com/AristideDongo/threadport/actions/workflows/ci.yml/badge.svg)](https://github.com/AristideDongo/threadport/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/AristideDongo/threadport?style=flat&logo=github)](https://github.com/AristideDongo/threadport/stargazers)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AristideDongo/threadport/blob/main/LICENSE)
+
 **One context. Any AI agent.**
 
 ThreadPort keeps development task context in your project and carries it between Claude Code, Codex, and locally configured agents. Each session tracks a timeline, decisions, tasks, notes, test results, agent runs, and Git snapshots. Data is stored in a local SQLite database.
@@ -156,3 +161,11 @@ private/**
 ```
 
 ThreadPort redacts several common secret formats before storing notes or sending a context pack, but detection is heuristic. Review `threadport context --explain` before a sensitive handoff. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
+
+## Contributing
+
+Issues and pull requests are welcome. See [Contributing](https://github.com/AristideDongo/threadport/blob/main/CONTRIBUTING.md) for the development setup and review process, and the [Code of Conduct](https://github.com/AristideDongo/threadport/blob/main/CODE_OF_CONDUCT.md) for community expectations. Browse [open issues](https://github.com/AristideDongo/threadport/issues) or [star the project](https://github.com/AristideDongo/threadport/stargazers) if ThreadPort helps your workflow.
+
+## License
+
+ThreadPort is available under the [MIT License](https://github.com/AristideDongo/threadport/blob/main/LICENSE).

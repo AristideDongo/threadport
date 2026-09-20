@@ -2,6 +2,7 @@
   "name": "threadport",
   "version": "0.3.2",
   "description": "CLI for carrying development context across AI coding agents",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AristideDongo/threadport.git"

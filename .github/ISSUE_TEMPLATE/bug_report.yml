@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible problem in ThreadPort
+title: "Bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please remove secrets and private session data before sharing logs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact ThreadPort commands if possible.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ThreadPort and Node.js versions
+      placeholder: "threadport 0.3.2; Node.js 24"
+    validations:
+      required: true
