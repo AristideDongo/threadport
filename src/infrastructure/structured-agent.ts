@@ -64,10 +64,10 @@ export class StructuredAgentRunner implements AgentRunner {
           while (pending.includes('\n')) {
             const index = pending.indexOf('\n');
             const line = pending.slice(0, index); pending = pending.slice(index + 1);
-            if (line.length > 1_000_000) throw new Error('Événement fournisseur trop volumineux.');
+            if (line.length > 1_000_000) throw new Error('Provider event is too large.');
             consume(line);
           }
-          if (pending.length > 1_000_000) throw new Error('Événement fournisseur trop volumineux.');
+          if (pending.length > 1_000_000) throw new Error('Provider event is too large.');
         } catch (error: unknown) {
           failed = true;
           child.kill();

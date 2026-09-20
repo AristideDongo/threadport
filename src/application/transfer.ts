@@ -16,7 +16,7 @@ export class SessionTransfer {
   constructor(private readonly store: SessionStore) {}
   export(id: string): SessionArchive {
     const session = this.store.getSession(id);
-    if (!session) throw new Error(`Session introuvable : ${id}`);
+    if (!session) throw new Error(`Session not found: ${id}`);
     return {
       formatVersion: 1,
       session,

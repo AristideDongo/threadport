@@ -32,12 +32,12 @@ const knownAgents = () => [...adapters, ...loadAgentPlugins(projectDir)];
 const findAgent = (id: string) => adapterById(id, loadAgentPlugins(projectDir));
 
 function project(create = false): { app: ThreadPort; store: SqliteStore } {
-  if (!create && !existsSync(dbPath)) throw new Error('Projet non initialisé. Lancez « threadport init ».');
+  if (!create && !existsSync(dbPath)) throw new Error('Project is not initialized. Run "threadport init".');
   if (create) mkdirSync(projectDir, { recursive: true, mode: 0o700 });
   const store = new SqliteStore(dbPath);
   const app = new ThreadPort(store, git, cwd);
   const recovered = app.recover();
-  if (recovered) console.error(`↺ ${recovered} exécution(s) interrompue(s) récupérée(s).`);
+  if (recovered) console.error(`↺ Recovered ${recovered} interrupted run(s).`);
   return { app, store };
 }
 
@@ -53,7 +53,7 @@ async function withProjectAsync(action: (app: ThreadPort) => Promise<void>): Pro
 
 function requireActive(app: ThreadPort) {
   const session = app.active();
-  if (!session) throw new Error('Aucune session active. Lancez « threadport new <objectif> ».');
+  if (!session) throw new Error('No active session. Run "threadport new <objective>".');
   return session;
 }
 
@@ -62,143 +62,143 @@ function contextMode(value: string) {
 }
 
 const cli = new Command();
-cli.name('threadport').description('La continuité locale de vos sessions entre agents IA.').version(packageVersion).showHelpAfterError();
+cli.name('threadport').description('Keep development sessions consistent across AI agents.').version(packageVersion).showHelpAfterError();
 
-cli.command('init').description('Initialiser ThreadPort dans ce dossier').action(() => {
-  if (existsSync(dbPath)) { console.log('✓ ThreadPort est déjà initialisé ici.'); return; }
+cli.command('init').description('Initialize ThreadPort in the current directory').action(() => {
+  if (existsSync(dbPath)) { console.log('✓ ThreadPort is already initialized here.'); return; }
   withProject(() => {
-    console.log(`✓ Projet initialisé : ${resolve(projectDir)}`);
-    if (!git.read(cwd)) console.log('ℹ Aucun dépôt Git détecté ; les captures Git seront indisponibles.');
-    console.log('Prochaine étape : threadport new "Votre objectif"');
+    console.log(`✓ Project initialized: ${resolve(projectDir)}`);
+    if (!git.read(cwd)) console.log('ℹ No Git repository found; Git snapshots will be unavailable.');
+    console.log('Next step: threadport new "Your objective"');
   }, true);
 });
-cli.command('new <objective>').description('Créer et activer une session').action((objective: string) => withProject((app) => {
+cli.command('new <objective>').description('Create and activate a session').action((objective: string) => withProject((app) => {
   const session = app.newSession(objective);
-  console.log(`✓ Session créée : ${session.id} — ${session.title}`);
-  console.log('Prochaine étape : threadport run claude');
+  console.log(`✓ Session created: ${session.id} — ${session.title}`);
+  console.log('Next step: threadport run claude');
 }));
-cli.command('sessions').description('Lister les sessions').action(() => withProject((app) => {
+cli.command('sessions').description('List sessions').action(() => withProject((app) => {
   const sessions = app.sessions();
-  if (!sessions.length) { console.log('Aucune session. Lancez « threadport new <objectif> ».'); return; }
+  if (!sessions.length) { console.log('No sessions. Run "threadport new <objective>".'); return; }
   for (const item of sessions) console.log(`${item.status === 'active' ? '●' : '○'} ${item.id.padEnd(8)} ${item.status.padEnd(6)} ${item.title}`);
 }));
-cli.command('open <id>').description('Activer une session existante').action((id: string) => withProject((app) => {
+cli.command('open <id>').description('Activate an existing session').action((id: string) => withProject((app) => {
   const session = app.open(id);
-  console.log(`✓ Session active : ${session.id} — ${session.title}`);
+  console.log(`✓ Active session: ${session.id} — ${session.title}`);
 }));
-cli.command('resume <id>').description('Réactiver une session et afficher son contexte').option('-m, --mode <mode>', 'Niveau de contexte', contextMode).action((id: string, options: { mode?: ReturnType<typeof assertMode> }) => withProject((app) => {
+cli.command('resume <id>').description('Reactivate a session and print its context').option('-m, --mode <mode>', 'Context detail level', contextMode).action((id: string, options: { mode?: ReturnType<typeof assertMode> }) => withProject((app) => {
   app.open(id);
   console.log(app.context(options.mode ?? readConfig(cwd).context.defaultMode, loadExcludes(cwd)));
 }));
-cli.command('status').description('Afficher la session et l’état Git').action(() => withProject((app) => {
+cli.command('status').description('Show the active session and Git state').action(() => withProject((app) => {
   const session = app.active();
-  if (!session) { console.log('Aucune session active. Lancez « threadport new <objectif> ».'); return; }
+  if (!session) { console.log('No active session. Run "threadport new <objective>".'); return; }
   const state = git.read(cwd);
   const lastRun = app.runs(session.id).at(-1);
   console.log(`Session  ${session.id} — ${session.title}`);
-  console.log(`État     ${session.status}`);
-  console.log(`Agent    ${lastRun ? `${lastRun.agentId} (${lastRun.status})${lastRun.providerSessionId ? ` · session ${lastRun.providerSessionId}` : ''}` : 'aucun'}`);
-  console.log(`Git      ${state ? `${state.branch ?? '(détaché)'} · ${state.changedFiles.length} fichier(s) modifié(s)` : 'indisponible'}`);
-  console.log(`Décisions ${app.decisions(session.id).length}`);
+  console.log(`State    ${session.status}`);
+  console.log(`Agent    ${lastRun ? `${lastRun.agentId} (${lastRun.status})${lastRun.providerSessionId ? ` · session ${lastRun.providerSessionId}` : ''}` : 'none'}`);
+  console.log(`Git      ${state ? `${state.branch ?? '(detached)'} · ${state.changedFiles.length} changed file(s)` : 'unavailable'}`);
+  console.log(`Decisions ${app.decisions(session.id).length}`);
 }));
-cli.command('timeline').description('Afficher les événements de la session active').action(() => withProject((app) => {
+cli.command('timeline').description('Show events for the active session').action(() => withProject((app) => {
   const events = app.events(requireActive(app).id);
   for (const event of events) console.log(`${event.createdAt}  ${event.type.padEnd(23)} ${event.message}`);
 }));
-cli.command('decision <title>').description('Consigner une décision technique').option('-r, --rationale <text>', 'Justification', '').action((title: string, options: { rationale: string }) => withProject((app) => {
+cli.command('decision <title>').description('Record a technical decision').option('-r, --rationale <text>', 'Reason for the decision', '').action((title: string, options: { rationale: string }) => withProject((app) => {
   app.decide(title, options.rationale);
-  console.log('✓ Décision enregistrée.');
+  console.log('✓ Decision recorded.');
 }));
-cli.command('decisions').description('Lister les décisions').action(() => withProject((app) => {
+cli.command('decisions').description('List decisions').action(() => withProject((app) => {
   for (const item of app.decisions(requireActive(app).id)) console.log(`• ${item.title}${item.rationale ? ` — ${item.rationale}` : ''}`);
 }));
-cli.command('note <text>').description('Consigner une note de travail').action((value: string) => withProject((app) => {
+cli.command('note <text>').description('Record a work note').action((value: string) => withProject((app) => {
   const item = app.addRecord('note', value);
-  console.log(`✓ Note ${item.id} enregistrée.`);
+  console.log(`✓ Note ${item.id} recorded.`);
 }));
-const task = cli.command('task').description('Gérer les tâches de la session');
-task.command('add <title>').description('Ajouter une tâche ouverte').action((title: string) => withProject((app) => {
+const task = cli.command('task').description('Manage session tasks');
+task.command('add <title>').description('Add an open task').action((title: string) => withProject((app) => {
   const item = app.addRecord('task', title, '', 'open');
-  console.log(`✓ Tâche ${item.id} ajoutée.`);
+  console.log(`✓ Task ${item.id} added.`);
 }));
-task.command('done <id>').description('Marquer une tâche comme terminée').action((id: string) => withProject((app) => {
+task.command('done <id>').description('Mark a task as completed').action((id: string) => withProject((app) => {
   const item = app.completeTask(id);
-  console.log(`✓ Tâche terminée : ${item.title}`);
+  console.log(`✓ Task completed: ${item.title}`);
 }));
-task.command('list').description('Lister les tâches').action(() => withProject((app) => {
+task.command('list').description('List tasks').action(() => withProject((app) => {
   for (const item of app.records(requireActive(app).id).filter((entry) => entry.kind === 'task')) console.log(`${item.status === 'done' ? '✓' : '○'} ${item.id} ${item.title}`);
 }));
-cli.command('error <title>').description('Consigner une erreur').option('-d, --details <text>', 'Détails', '').action((title: string, options: { details: string }) => withProject((app) => {
+cli.command('error <title>').description('Record an error').option('-d, --details <text>', 'Details', '').action((title: string, options: { details: string }) => withProject((app) => {
   const item = app.addRecord('error', title, options.details, 'open');
-  console.log(`✓ Erreur ${item.id} enregistrée.`);
+  console.log(`✓ Error ${item.id} recorded.`);
 }));
-cli.command('test-result <title>').description('Consigner un résultat de test').requiredOption('-s, --status <status>', 'passed ou failed').option('-d, --details <text>', 'Détails', '').action((title: string, options: { status: string; details: string }) => withProject((app) => {
-  if (options.status !== 'passed' && options.status !== 'failed') throw new Error('Le statut doit être passed ou failed.');
+cli.command('test-result <title>').description('Record a test result').requiredOption('-s, --status <status>', 'passed or failed').option('-d, --details <text>', 'Details', '').action((title: string, options: { status: string; details: string }) => withProject((app) => {
+  if (options.status !== 'passed' && options.status !== 'failed') throw new Error('Status must be passed or failed.');
   const item = app.addRecord('test', title, options.details, options.status === 'passed' ? 'done' : 'failed');
-  console.log(`✓ Résultat ${item.id} enregistré.`);
+  console.log(`✓ Test result ${item.id} recorded.`);
 }));
-cli.command('check <executable> [args...]').description('Exécuter une commande et consigner son résultat').action(async (executable: string, args: string[]) => withProjectAsync(async (app) => {
+cli.command('check <executable> [args...]').description('Run a command and record its result').action(async (executable: string, args: string[]) => withProjectAsync(async (app) => {
   const code = await app.check(executable, args, new LocalCommandExecutor());
   if (code !== 0) process.exitCode = code;
 }));
-cli.command('command-log <command>').description('Consigner une commande exécutée').option('-d, --details <text>', 'Résultat', '').action((value: string, options: { details: string }) => withProject((app) => {
+cli.command('command-log <command>').description('Record a command run elsewhere').option('-d, --details <text>', 'Result', '').action((value: string, options: { details: string }) => withProject((app) => {
   const item = app.addRecord('command', value, options.details);
-  console.log(`✓ Commande ${item.id} enregistrée.`);
+  console.log(`✓ Command ${item.id} recorded.`);
 }));
-cli.command('memory <text>').description('Ajouter une information durable au projet').action((value: string) => withProject((app) => {
+cli.command('memory <text>').description('Add durable project knowledge').action((value: string) => withProject((app) => {
   const item = app.addRecord('memory', value);
-  console.log(`✓ Mémoire ${item.id} enregistrée.`);
+  console.log(`✓ Memory ${item.id} recorded.`);
 }));
-cli.command('constraint <text>').description('Consigner une contrainte de la session').action((value: string) => withProject((app) => {
+cli.command('constraint <text>').description('Record a session constraint').action((value: string) => withProject((app) => {
   const item = app.addRecord('constraint', value);
-  console.log(`✓ Contrainte ${item.id} enregistrée.`);
+  console.log(`✓ Constraint ${item.id} recorded.`);
 }));
-cli.command('file <path>').description('Marquer un fichier pertinent').option('-d, --details <text>', 'Raison', '').action((path: string, options: { details: string }) => withProject((app) => {
+cli.command('file <path>').description('Mark a relevant file').option('-d, --details <text>', 'Reason', '').action((path: string, options: { details: string }) => withProject((app) => {
   const item = app.addRecord('file', path, options.details);
-  console.log(`✓ Fichier ${item.id} enregistré.`);
+  console.log(`✓ File ${item.id} recorded.`);
 }));
-cli.command('files').description('Lister les fichiers pertinents et modifiés').action(() => withProject((app) => {
+cli.command('files').description('List relevant and changed files').action(() => withProject((app) => {
   const session = requireActive(app);
   const marked = app.records(session.id).filter((item) => item.kind === 'file');
   const changed = git.read(cwd)?.changedFiles ?? [];
   for (const item of marked) console.log(`• ${item.title}${item.body ? ` — ${item.body}` : ''}`);
   for (const path of changed) if (!marked.some((item) => item.title === path)) console.log(`~ ${path}`);
 }));
-cli.command('artifact <path>').description('Consigner un artefact de travail').option('-d, --details <text>', 'Description', '').action((path: string, options: { details: string }) => withProject((app) => {
+cli.command('artifact <path>').description('Record a work artifact').option('-d, --details <text>', 'Description', '').action((path: string, options: { details: string }) => withProject((app) => {
   const item = app.addRecord('artifact', path, options.details);
-  console.log(`✓ Artefact ${item.id} enregistré.`);
+  console.log(`✓ Artifact ${item.id} recorded.`);
 }));
-cli.command('summary').description('Produire un résumé de la session active').action(() => withProject((app) => {
+cli.command('summary').description('Summarize the active session').action(() => withProject((app) => {
   const item = app.summarize();
   console.log(`${item.title}\n${item.body}`);
 }));
-cli.command('search <query>').description('Rechercher dans les sessions, décisions et notes').action((query: string) => withProject((app) => {
+cli.command('search <query>').description('Search sessions, decisions, and records').action((query: string) => withProject((app) => {
   const hits = app.search(query);
-  if (!hits.length) { console.log('Aucun résultat.'); return; }
+  if (!hits.length) { console.log('No results.'); return; }
   for (const hit of hits) console.log(`${hit.source.padEnd(8)} ${hit.sessionId} ${hit.title}\n  ${hit.snippet}`);
 }));
-cli.command('export <id>').description('Exporter une session en JSON portable').requiredOption('-o, --out <file>', 'Fichier de destination').action((id: string, options: { out: string }) => {
+cli.command('export <id>').description('Export a session as portable JSON').requiredOption('-o, --out <file>', 'Destination file').action((id: string, options: { out: string }) => {
   const { store } = project();
   try {
     const archive = new SessionTransfer(store).export(id);
     writeFileSync(options.out, JSON.stringify(archive, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
-    console.log(`✓ Session ${id} exportée : ${resolve(options.out)}`);
+    console.log(`✓ Session ${id} exported: ${resolve(options.out)}`);
   } finally { store.close(); }
 });
-cli.command('import <file>').description('Importer une archive de session JSON').action((file: string) => {
-  if (statSync(file).size > 10_000_000) throw new Error('Archive trop volumineuse (10 Mo maximum).');
+cli.command('import <file>').description('Import a JSON session archive').action((file: string) => {
+  if (statSync(file).size > 10_000_000) throw new Error('Archive is too large (10 MB maximum).');
   const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
   const { store } = project();
   try {
     const session = new SessionTransfer(store).import(input);
-    console.log(`✓ Session importée : ${session.id} — ${session.title}`);
+    console.log(`✓ Session imported: ${session.id} — ${session.title}`);
   } finally { store.close(); }
 });
-const forkCommand = cli.command('fork').description('Expérimenter dans des worktrees Git isolés');
-forkCommand.option('--agents <ids>', 'Agents séparés par une virgule').action((options: { agents?: string }) => {
+const forkCommand = cli.command('fork').description('Experiment in isolated Git worktrees');
+forkCommand.option('--agents <ids>', 'Comma-separated agent IDs').action((options: { agents?: string }) => {
   if (!options.agents) { forkCommand.help(); return; }
   const agents = options.agents.split(',').map((id) => id.trim()).filter(Boolean);
-  if (!agents.length) throw new Error('Indiquez au moins un agent.');
+  if (!agents.length) throw new Error('Specify at least one agent.');
   for (const id of agents) findAgent(id);
   const { store } = project();
   try {
@@ -206,24 +206,24 @@ forkCommand.option('--agents <ids>', 'Agents séparés par une virgule').action(
     for (const item of forks) console.log(`✓ ${item.id} ${item.agentId} → ${item.path}`);
   } finally { store.close(); }
 });
-forkCommand.command('list').description('Lister les forks de la session').action(() => {
+forkCommand.command('list').description('List session forks').action(() => {
   const { store } = project();
   try { for (const item of new Forks(store, git, worktrees, cwd).list()) console.log(`${item.id} ${item.agentId.padEnd(8)} ${item.branch} ${item.path}`); }
   finally { store.close(); }
 });
-forkCommand.command('remove <id>').description('Supprimer un worktree propre (conserve sa branche)').action((id: string) => {
+forkCommand.command('remove <id>').description('Remove a clean worktree and keep its branch').action((id: string) => {
   const { store } = project();
-  try { new Forks(store, git, worktrees, cwd).remove(id); console.log(`✓ Worktree ${id} supprimé ; branche conservée.`); }
+  try { new Forks(store, git, worktrees, cwd).remove(id); console.log(`✓ Worktree ${id} removed; branch kept.`); }
   finally { store.close(); }
 });
-forkCommand.command('run <id>').description('Lancer l’agent associé dans son worktree').option('--structured', 'Capturer les événements JSON du fournisseur').action(async (id: string, options: { structured?: boolean }) => {
+forkCommand.command('run <id>').description('Launch the assigned agent in its worktree').option('--structured', 'Capture provider JSON events').action(async (id: string, options: { structured?: boolean }) => {
   const { store } = project();
   try {
     const fork = new Forks(store, git, worktrees, cwd).get(id);
     await launchIn(new ThreadPort(store, git, fork.path), fork.agentId, fork.path, options.structured === true);
   } finally { store.close(); }
 });
-forkCommand.command('check <id> <executable> [args...]').description('Exécuter un test dans un fork et enregistrer le résultat').action(async (id: string, executable: string, args: string[]) => {
+forkCommand.command('check <id> <executable> [args...]').description('Run a command in a fork and record its result').action(async (id: string, executable: string, args: string[]) => {
   const { store } = project();
   try {
     const fork = new Forks(store, git, worktrees, cwd).get(id);
@@ -231,55 +231,55 @@ forkCommand.command('check <id> <executable> [args...]').description('Exécuter 
     if (code !== 0) process.exitCode = code;
   } finally { store.close(); }
 });
-cli.command('compare <first> <second>').description('Comparer les modifications de deux forks').option('--diff', 'Afficher les diffs complets (plafonnés)').action((first: string, second: string, options: { diff?: boolean }) => {
+cli.command('compare <first> <second>').description('Compare changes between two forks').option('--diff', 'Show full diffs (size limited)').action((first: string, second: string, options: { diff?: boolean }) => {
   const { store } = project();
   try {
     const forks = new Forks(store, git, worktrees, cwd);
     const comparison = forks.compare(first, second);
-    for (const item of comparison) console.log(`${item.fork.id} (${item.fork.agentId})\n  ${item.stats.files} fichiers · +${item.stats.added} / -${item.stats.deleted} lignes\n  ${item.runs.length} run(s) · ${item.commands} commande(s) · ${item.errors} erreur(s) · ${Math.round(item.durationMs / 1000)} s\n  ${item.tests.filter((test) => test.status === 'done').length} test(s) réussis · ${item.tests.filter((test) => test.status === 'failed').length} échec(s) · ${item.tokens || 'n/d'} tokens enregistrés\n  ${item.stats.paths.join(', ') || 'aucune modification'}`);
+    for (const item of comparison) console.log(`${item.fork.id} (${item.fork.agentId})\n  ${item.stats.files} files · +${item.stats.added} / -${item.stats.deleted} lines\n  ${item.runs.length} run(s) · ${item.commands} command(s) · ${item.errors} error(s) · ${Math.round(item.durationMs / 1000)} s\n  ${item.tests.filter((test) => test.status === 'done').length} passed test(s) · ${item.tests.filter((test) => test.status === 'failed').length} failed test(s) · ${item.tokens || 'n/a'} recorded tokens\n  ${item.stats.paths.join(', ') || 'no changes'}`);
     if (options.diff) for (const item of comparison) console.log(`\n--- ${item.fork.id} ---\n${redact(safeDiff(forks.diff(item.fork.id), loadExcludes(cwd)))}`);
   } finally { store.close(); }
 });
-cli.command('snapshot').description('Capturer l’état Git actuel').action(() => withProject((app) => {
+cli.command('snapshot').description('Capture the current Git state').action(() => withProject((app) => {
   const snapshot = app.snapshot();
-  console.log(`✓ Snapshot ${snapshot.id.slice(0, 8)} : ${snapshot.git.changedFiles.length} fichier(s) modifié(s).`);
+  console.log(`✓ Snapshot ${snapshot.id.slice(0, 8)}: ${snapshot.git.changedFiles.length} changed file(s).`);
 }));
-cli.command('context').description('Prévisualiser le contexte transmis à un agent').option('-m, --mode <mode>', 'minimal, standard, deep ou full', contextMode).option('--explain', 'Afficher le budget et la provenance').action((options: { mode?: ReturnType<typeof assertMode>; explain?: boolean }) => withProject((app) => {
+cli.command('context').description('Preview context sent to an agent').option('-m, --mode <mode>', 'minimal, standard, deep, or full', contextMode).option('--explain', 'Show the token budget and sources').action((options: { mode?: ReturnType<typeof assertMode>; explain?: boolean }) => withProject((app) => {
   const pack = app.contextPack(options.mode ?? readConfig(cwd).context.defaultMode, loadExcludes(cwd));
   console.log(pack.text);
-  if (options.explain) console.error(`\n${pack.tokens}/${pack.budget} tokens · Sources : ${pack.included.map((item) => item.source).join(', ')}${pack.omitted.length ? ` · Omis : ${pack.omitted.join(', ')}` : ''}${pack.excludedPaths.length ? ` · Exclus : ${pack.excludedPaths.join(', ')}` : ''}`);
+  if (options.explain) console.error(`\n${pack.tokens}/${pack.budget} tokens · Sources: ${pack.included.map((item) => item.source).join(', ')}${pack.omitted.length ? ` · Omitted: ${pack.omitted.join(', ')}` : ''}${pack.excludedPaths.length ? ` · Excluded: ${pack.excludedPaths.join(', ')}` : ''}`);
 }));
-cli.command('agents').description('Afficher les agents configurés').action(() => {
+cli.command('agents').description('List configured agents').action(() => {
   for (const agent of knownAgents()) console.log(`${runner.available(agent.command) ? '✓' : '·'} ${agent.id.padEnd(8)} ${agent.label} (${agent.command})`);
 });
-const config = cli.command('config').description('Afficher ou modifier la configuration projet');
-config.command('show').description('Afficher la configuration effective').action(() => console.log(JSON.stringify(readConfig(cwd), null, 2)));
-config.command('set-default-mode <mode>').description('Choisir le mode de contexte par défaut').action((value: string) => withProject(() => {
+const config = cli.command('config').description('View or change project configuration');
+config.command('show').description('Show effective configuration').action(() => console.log(JSON.stringify(readConfig(cwd), null, 2)));
+config.command('set-default-mode <mode>').description('Set the default context mode').action((value: string) => withProject(() => {
   const setting = setDefaultMode(cwd, assertMode(value));
-  console.log(`✓ Mode par défaut : ${setting.context.defaultMode}`);
+  console.log(`✓ Default mode: ${setting.context.defaultMode}`);
 }));
-const plugin = cli.command('plugin').description('Gérer les adapters locaux');
-plugin.command('add <manifest>').description('Installer un manifest JSON d’agent dans le projet').action((path: string) => {
+const plugin = cli.command('plugin').description('Manage local agent adapters');
+plugin.command('add <manifest>').description('Install an agent JSON manifest in the project').action((path: string) => {
   const value = installAgentPlugin(projectDir, path);
-  console.log(`✓ Agent ${value.id} installé.`);
+  console.log(`✓ Agent ${value.id} installed.`);
 });
-plugin.command('list').description('Lister les adapters du projet').action(() => {
+plugin.command('list').description('List project agent adapters').action(() => {
   for (const item of loadAgentPlugins(projectDir)) console.log(`${item.id} ${item.command}`);
 });
-cli.command('doctor').description('Vérifier l’environnement local').action(() => {
-  console.log(`Node     ${process.version}${Number(process.versions.node.split('.')[0]) >= 24 ? ' ✓' : ' (Node 24 requis)'}`);
-  console.log(`Projet   ${existsSync(dbPath) ? 'initialisé ✓' : 'non initialisé'}`);
-  console.log(`Git      ${git.read(cwd) ? 'dépôt détecté ✓' : 'pas de dépôt'}`);
+cli.command('doctor').description('Check the local environment').action(() => {
+  console.log(`Node     ${process.version}${Number(process.versions.node.split('.')[0]) >= 24 ? ' ✓' : ' (Node 24 required)'}`);
+  console.log(`Project  ${existsSync(dbPath) ? 'initialized ✓' : 'not initialized'}`);
+  console.log(`Git      ${git.read(cwd) ? 'repository found ✓' : 'no repository'}`);
   console.log(`Config   ${readConfig(cwd).context.defaultMode}`);
-  for (const agent of knownAgents()) console.log(`${agent.label.padEnd(11)} ${runner.available(agent.command) ? 'disponible ✓' : 'absent'}`);
+  for (const agent of knownAgents()) console.log(`${agent.label.padEnd(11)} ${runner.available(agent.command) ? 'available ✓' : 'missing'}`);
 });
-cli.command('tui').description('Ouvrir un menu terminal interactif').action(async () => withProjectAsync((app) => openMenu(app, cwd)));
-cli.command('serve').description('Démarrer une API locale avec jeton temporaire').option('-p, --port <port>', 'Port TCP', '0').action(async (options: { port: string }) => withProjectAsync((app) => {
+cli.command('tui').description('Open the interactive terminal menu').action(async () => withProjectAsync((app) => openMenu(app, cwd)));
+cli.command('serve').description('Start a local API with a temporary token').option('-p, --port <port>', 'TCP port', '0').action(async (options: { port: string }) => withProjectAsync((app) => {
   const port = Number(options.port);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Port invalide.');
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid port.');
   return serveApi(app, cwd, port);
 }));
-cli.command('mcp').description('Démarrer le serveur MCP stdio').action(async () => withProjectAsync((app) => serveMcp(app, cwd)));
+cli.command('mcp').description('Start the MCP stdio server').action(async () => withProjectAsync((app) => serveMcp(app, cwd)));
 
 async function launch(agentId: string, options: { structured?: boolean }): Promise<void> {
   await withProjectAsync(async (app) => launchIn(app, agentId, cwd, options.structured === true));
@@ -287,22 +287,22 @@ async function launch(agentId: string, options: { structured?: boolean }): Promi
 async function launchIn(app: ThreadPort, agentId: string, workingDirectory: string, structured = false, providerSessionId: string | null = null): Promise<void> {
     const adapter = findAgent(agentId);
     requireActive(app);
-    if (!runner.available(adapter.command)) throw new Error(`${adapter.label} est introuvable (${adapter.command}). Lancez « threadport doctor ».`);
+    if (!runner.available(adapter.command)) throw new Error(`${adapter.label} was not found (${adapter.command}). Run "threadport doctor".`);
     const tempDir = mkdtempSync(join(tmpdir(), 'threadport-'));
     const file = join(tempDir, 'handoff.md');
     try {
       writeFileSync(file, app.context(readConfig(cwd).context.defaultMode, loadExcludes(cwd)), { mode: 0o600 });
-      console.log(`→ Lancement de ${adapter.label} avec le contexte de la session active.`);
+      console.log(`→ Launching ${adapter.label} with active session context.`);
       const activeAdapter = providerSessionId ? {
         ...adapter,
         args: (contextFile: string) => {
-          if (!adapter.resumeArgs) throw new Error(`La reprise native n'est pas disponible pour ${agentId}.`);
+          if (!adapter.resumeArgs) throw new Error(`Native resumption is unavailable for ${agentId}.`);
           return adapter.resumeArgs(providerSessionId, contextFile);
         },
       } : structured ? {
         ...adapter,
         args: (contextFile: string) => {
-          if (!adapter.structuredArgs) throw new Error(`Le mode structuré n'est pas disponible pour ${agentId}.`);
+          if (!adapter.structuredArgs) throw new Error(`Structured mode is unavailable for ${agentId}.`);
           return adapter.structuredArgs(contextFile);
         },
       } : adapter;
@@ -314,20 +314,20 @@ async function launchIn(app: ThreadPort, agentId: string, workingDirectory: stri
         if (event.kind === 'message') console.log(event.body);
       }) : runner;
       const run = await app.run(activeAdapter, activeRunner, file, providerSessionId);
-      console.log(`\n✓ Exécution ${run.id} terminée (${run.status}, code ${run.exitCode}).`);
+      console.log(`\n✓ Run ${run.id} finished (${run.status}, exit code ${run.exitCode}).`);
       if (run.exitCode !== 0) process.exitCode = run.exitCode ?? 1;
     } finally { rmSync(tempDir, { recursive: true, force: true }); }
 }
-cli.command('run <agent>').description('Lancer un agent avec le contexte actif').option('--structured', 'Capturer les événements JSON du fournisseur').action(launch);
-cli.command('switch <agent>').description('Passer à un autre agent avec un handoff').option('--structured', 'Capturer les événements JSON du fournisseur').action(launch);
-cli.command('continue <agent>').description('Reprendre la session native du fournisseur liée à ThreadPort').action(async (agentId: string) => withProjectAsync(async (app) => {
+cli.command('run <agent>').description('Launch an agent with active session context').option('--structured', 'Capture provider JSON events').action(launch);
+cli.command('switch <agent>').description('Hand off to another agent').option('--structured', 'Capture provider JSON events').action(launch);
+cli.command('continue <agent>').description('Resume a linked native provider session').action(async (agentId: string) => withProjectAsync(async (app) => {
   const session = requireActive(app);
   const previous = app.runs(session.id).findLast((run) => run.agentId === agentId && Boolean(run.providerSessionId));
-  if (!previous?.providerSessionId) throw new Error(`Aucune session ${agentId} liée. Lancez d'abord « threadport run ${agentId} --structured ».`);
+  if (!previous?.providerSessionId) throw new Error(`No linked ${agentId} session. First run "threadport run ${agentId} --structured".`);
   await launchIn(app, agentId, cwd, false, previous.providerSessionId);
 }));
 
 cli.parseAsync(process.argv).catch((error: unknown) => {
-  console.error(`Erreur : ${error instanceof Error ? error.message : String(error)}`);
+  console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

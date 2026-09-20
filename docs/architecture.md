@@ -1,31 +1,31 @@
-# Architecture ThreadPort 0.3
+# ThreadPort architecture
 
-## Dépendances
+## Dependencies
 
-`interfaces → application → domain`. `infrastructure` implémente les ports de l'application. La composition se fait dans la CLI ; les adapters fournisseur et Git ne sont jamais importés par le domaine.
+`interfaces → application → domain`. Infrastructure implements application ports. The CLI assembles the components. Provider adapters and Git integration are never imported by the domain layer.
 
-## Persistance
+## Persistence
 
-Une base SQLite par projet vit dans `.threadport/threadport.sqlite`. `PRAGMA user_version` pilote les migrations jusqu'à la version 5. Les tables contiennent sessions, runs, événements, décisions, snapshots, enregistrements de travail, forks et un index FTS5. SQLite fonctionne en WAL avec un délai d'attente pour les écritures concurrentes. Les runs portent le PID du processus propriétaire, l'éventuel identifiant du fork et l'identifiant de session du fournisseur. Après un crash, seuls les runs dont le processus n'est plus vivant sont marqués interrompus. Les événements bruts restent disponibles après la production d'un résumé.
+Each project keeps a SQLite database at `.threadport/threadport.sqlite`. `PRAGMA user_version` manages migrations through schema version 5. Tables store sessions, runs, events, decisions, snapshots, work records, forks, and an FTS5 search index. SQLite uses WAL mode and a busy timeout for concurrent writes. Runs store the owner process ID, optional fork ID, and provider session ID. After a crash, only runs whose owner process is no longer alive are marked interrupted. Original events remain available after a summary is created.
 
-L'export JSON version 1 contient l'historique d'une session sans les chemins locaux de ses forks. L'import valide l'archive, remappe les identifiants et insère l'ensemble dans une transaction ; il laisse la base d'origine intacte.
+Version 1 JSON exports contain a session's history without local fork paths. Import validates the archive, remaps IDs, and inserts the data in a transaction; it does not change the source database.
 
-## Collecte fournisseur
+## Provider event capture
 
-Le lancement interactif passe le pack par un fichier temporaire et laisse le terminal à l'agent. Le mode structuré lance `codex exec --json` ou `claude -p --output-format stream-json --verbose`, interprète les événements utiles et conserve les données normalisées, pas le flux brut. Les sorties fournisseur peuvent changer : leur conversion est isolée dans `structured-agent.ts`. Un run porte l'ID de session fournisseur lorsqu'il a été annoncé ; `continue` s'en sert pour une reprise native.
+Interactive launching passes the context pack through a temporary file and gives the terminal to the agent. Structured mode runs `codex exec --json` or `claude -p --output-format stream-json --verbose`, interprets useful events, and stores normalized data rather than the raw stream. Provider formats may change; their conversion is isolated in `structured-agent.ts`. A run stores the provider session ID when the provider announces it, and `continue` uses that ID for native resumption.
 
-## Packs de contexte
+## Context packs
 
-Le pack contient objectif, dernier résumé, mémoire de projet, contraintes, tâches ouvertes, erreurs, décisions, tests, notes, fichiers pertinents, artefacts, état Git et événements récents. Un diff peut être ajouté en mode `deep` ou `full`. Chaque section indique sa provenance. Les budgets 500/1 500/4 000/10 000 sont mesurés avec `cl100k_base`, qui sert de référence entre fournisseurs. Les sections sont insérées par priorité ; celles qui dépassent le budget sont listées dans l'explication. Les chemins exclus par défaut, `.threadport/config.json` ou `.threadportignore` ne sont pas transmis ; la détection de secrets reste heuristique.
+A pack can contain the objective, latest summary, project memory, constraints, open tasks, errors, decisions, tests, notes, relevant files, artifacts, Git state, and recent events. A diff can be included in `deep` or `full` mode. Each section identifies its source. Budgets of 500, 1,500, 4,000, and 10,000 tokens are measured with `cl100k_base`, a reference measure across providers. Sections are added by priority; the explanation lists sections that did not fit. Default exclusions, `.threadport/config.json`, and `.threadportignore` keep selected paths out of the pack. Secret detection remains heuristic.
 
-## Git, forks et comparaison
+## Git, forks, and comparison
 
-La lecture Git utilise `status --porcelain=v1 -z` pour les chemins particuliers. Les snapshots conservent les métadonnées, pas les diffs. Un fork exige un arbre de travail propre, crée une branche et un worktree à partir du même `HEAD`, et enregistre son lien avec la session. Les runs et tests faits dans un fork portent son ID. `compare` rapporte les mesures disponibles et peut afficher des diffs filtrés. `fork remove` refuse un worktree modifié et conserve la branche.
+Git status uses `status --porcelain=v1 -z` to handle unusual paths. Snapshots store metadata rather than diffs. Creating a fork requires a clean worktree, creates a branch and worktree from the same `HEAD`, and links it to the session. Runs and tests inside a fork carry its ID. `compare` reports available measurements and can display filtered diffs. `fork remove` refuses a modified worktree and keeps its branch.
 
 ## Interfaces
 
-La CLI, le menu TUI, l'API HTTP locale et MCP `stdio` utilisent les mêmes cas d'usage. L'API n'écoute que `127.0.0.1` et exige un jeton temporaire. API et MCP exposent les sessions, les runs, les notes, les tâches, les décisions et les résumés. Les manifests de plugins ajoutent des adapters d'agents CLI validés à l'entrée.
+The CLI, terminal menu, local HTTP API, and MCP `stdio` server use the same application use cases. The API listens only on `127.0.0.1` and requires a temporary token. API and MCP expose sessions, runs, notes, tasks, decisions, and summaries. Plugin manifests add validated CLI agent adapters.
 
-## Risques et prochaines améliorations
+## Current boundaries
 
-La capture interactive détaillée dépendrait de hooks ou de protocoles fournisseur plus profonds. Une correspondance complète entre événements Claude et Codex exige des tests réels réguliers. Le compteur de tokens n'est pas exact pour tous les modèles. Les API/TUI et les types de plugins peuvent être étendus lorsque les flux de base auront davantage de tests de compatibilité et de résistance aux interruptions.
+Detailed interactive capture would require deeper provider hooks or protocols. Complete mapping of Claude and Codex events requires regular live compatibility checks. Token counts are not exact for every model. API, terminal menu, and plugin types can be expanded as compatibility and interruption handling gain further coverage.

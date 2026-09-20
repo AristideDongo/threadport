@@ -1,17 +1,17 @@
-# Développement de ThreadPort
+# Developing ThreadPort
 
 ## Architecture
 
 ```text
-src/domain/             Types et règles du modèle universel
-src/application/        Cas d'usage et ports
-src/infrastructure/     SQLite, Git, agents, commandes et confidentialité
-src/interfaces/         CLI, TUI, API et MCP
+src/domain/             Core model types and rules
+src/application/        Use cases and ports
+src/infrastructure/     SQLite, Git, agents, commands, and privacy
+src/interfaces/         CLI, terminal menu, API, and MCP
 ```
 
-Le domaine ne dépend d'aucun fournisseur. Les migrations SQLite sont versionnées et la recherche utilise FTS5. Voir [architecture.md](architecture.md) pour les choix techniques.
+The domain does not depend on any provider. SQLite migrations are versioned and search uses FTS5. See [architecture.md](architecture.md) for design decisions.
 
-## Installation depuis les sources
+## Install from source
 
 ```bash
 npm install
@@ -20,9 +20,9 @@ npm link
 threadport --help
 ```
 
-Après une modification, relancer `npm run build`. Pour travailler directement en TypeScript : `npm run dev -- --help`.
+Run `npm run build` after code changes. To work directly with TypeScript, use `npm run dev -- --help`.
 
-## Vérifications
+## Checks
 
 ```bash
 npm run check
@@ -31,19 +31,19 @@ npm run build
 npm audit --audit-level=moderate
 ```
 
-Les tests couvrent les flux locaux et les formats structurés simulés. Une vérification avec un vrai service Claude ou Codex requiert l'agent installé, un compte configuré et une exécution volontaire ; les formats des fournisseurs peuvent évoluer.
+Tests cover local workflows and simulated structured provider formats. A live Claude or Codex check requires an installed agent, a configured account, and an intentional run. Provider formats may evolve.
 
-## Frontières de collecte
+## Capture boundaries
 
-Le mode interactif confie le terminal à l'agent et ne voit pas les conversations que cet agent ne publie pas. Le mode `--structured` normalise les événements JSON disponibles. Un résumé ne peut décrire que les données conservées ; il ne reconstitue pas un raisonnement privé absent. Les données du projet restent locales, sauf lorsqu'un agent lancé les transmet selon ses propres règles.
+Interactive mode gives the terminal to the agent and cannot see conversations the agent does not expose. `--structured` normalizes available JSON events. A summary can describe only stored data; it cannot reconstruct private reasoning that was never captured. Project data stays local unless a launched agent transmits it under its own rules.
 
-Les manifests de plugins configurent actuellement des agents CLI. Le stockage, l'export et les hooks restent des points d'extension internes et n'acceptent pas encore de plugins externes.
+Plugin manifests currently configure CLI agents. Storage, export, and hooks are internal extension points and do not yet accept external plugins.
 
-## Publier une version
+## Publish a version
 
-Le workflow `ci.yml` vérifie les commits de `main` et les demandes de fusion. `publish.yml` publie uniquement un tag `vX.Y.Z` pointant vers un commit de `main` dont `package.json` porte la même version. La release passe les mêmes contrôles et vérifie que l'archive npm contient le CLI, sans `THREADPORT_PROJECT_PROMPT.md`.
+The `ci.yml` workflow checks commits on `main` and pull requests. `publish.yml` publishes only a `vX.Y.Z` tag pointing to a commit on `main` whose `package.json` has the same version. The release runs the same checks and verifies that the npm archive contains the CLI but excludes `THREADPORT_PROJECT_PROMPT.md`.
 
-Le package npm `threadport` doit autoriser un éditeur de confiance GitHub Actions avec le dépôt `AristideDongo/threadport`, le fichier `publish.yml` et l'action **npm publish**. La publication utilise OIDC et ne nécessite pas de secret `NPM_TOKEN`. Le dépôt GitHub est privé : npm ne génère pas de provenance pour ses releases.
+The `threadport` npm package must trust GitHub Actions for repository `AristideDongo/threadport`, workflow file `publish.yml`, and the **npm publish** action. Publishing uses OIDC and needs no `NPM_TOKEN` secret. Since the GitHub repository is private, npm does not generate provenance for these releases.
 
 ```bash
 npm version patch --no-git-tag-version
@@ -56,4 +56,4 @@ git tag "v$(node -p 'require("./package.json").version')"
 git push origin "v$(node -p 'require("./package.json").version')"
 ```
 
-Attendre que le workflow de publication se termine avant de considérer la version disponible sur npm.
+Wait for the publication workflow to finish before treating the version as available on npm.

@@ -2,42 +2,42 @@
 
 **One context. Any AI agent.**
 
-ThreadPort conserve le contexte d'une tâche de développement dans le projet et le transmet à Claude Code, Codex ou un agent configuré localement. Chaque session possède une timeline, des décisions, des tâches, des notes, des résultats de tests, des exécutions d'agents et des captures Git. Les données restent dans une base SQLite locale.
+ThreadPort keeps development task context in your project and carries it between Claude Code, Codex, and locally configured agents. Each session tracks a timeline, decisions, tasks, notes, test results, agent runs, and Git snapshots. Data is stored in a local SQLite database.
 
-Le transfert conserve les informations enregistrées dans la session et les événements exposés par les agents en mode structuré.
+The handoff includes information recorded in the session and events exposed by agents in structured mode.
 
 ## Installation
 
-Prérequis : Node.js **24+**, npm et, pour les fonctions Git, un dépôt Git. Installez Claude Code et/ou Codex CLI dans `PATH` pour lancer ces agents.
+Requirements: **Node.js 24+** and npm. Git features require a Git repository. Install Claude Code and/or Codex CLI on your `PATH` to launch those agents.
 
 ```bash
 npm install --global threadport
 threadport --help
 ```
 
-## Parcours rapide : Claude → Codex
+## Quick start: Claude → Codex
 
-Depuis **la racine du projet à suivre** :
+Run these commands from the **root of the project you want to track**:
 
 ```bash
 threadport init
-threadport new "Corriger la rotation des jetons"
-threadport task add "Écrire un test de concurrence"
-threadport decision "Conserver les identifiants dans Redis" -r "Révocation partagée"
+threadport new "Fix token rotation"
+threadport task add "Write a concurrency test"
+threadport decision "Keep token IDs in Redis" -r "Shared revocation"
 threadport context --explain
 threadport run claude
 ```
 
-Après la sortie de Claude, vous pouvez consigner le travail que son interface interactive ne fournit pas à ThreadPort :
+After Claude exits, you can record work that its interactive interface did not expose to ThreadPort:
 
 ```bash
-threadport note "La collision survient pendant le renouvellement simultané"
+threadport note "The collision happens during simultaneous renewal"
 threadport check npm test
 threadport summary
 threadport switch codex
 ```
 
-Pour une **capture structurée** des événements fournisseur, utilisez `--structured`. Ce mode lance l'agent sans interface interactive et enregistre les commandes, messages finaux, erreurs et identifiants de session présents dans le flux JSON :
+For **structured event capture**, use `--structured`. This runs the agent without its interactive interface and records commands, messages, errors, and provider session IDs available in its JSON stream:
 
 ```bash
 threadport run codex --structured
@@ -45,58 +45,58 @@ threadport status
 threadport continue codex
 ```
 
-`continue` reprend la session native du fournisseur si un identifiant a été capturé par un run structuré. `threadport resume <id>` réactive, lui, une **session ThreadPort** et affiche son contexte sans lancer d'agent.
+`continue` resumes a native provider session if its ID was captured during a structured run. `threadport resume <id>` instead activates a **ThreadPort session** and prints its context without launching an agent.
 
-## Commandes
+## Commands
 
-| Commande | Rôle |
+| Command | Purpose |
 | --- | --- |
-| `init` | Initialise `.threadport/threadport.sqlite` dans le dossier courant. |
-| `new "objectif"`, `sessions`, `open <id>`, `resume <id>` | Crée, liste et réactive les sessions. |
-| `status`, `timeline`, `snapshot` | Affiche la situation, les événements et les métadonnées Git. |
-| `decision "titre" [-r "raison"]`, `decisions` | Consigne et consulte les décisions. |
-| `task add "titre"`, `task done <id>`, `task list` | Suit les tâches. |
-| `note "texte"`, `error "titre" [-d "détails"]` | Consigne une information ou un problème. |
-| `constraint "texte"`, `file <chemin>`, `files`, `artifact <chemin>` | Conserve les contraintes, fichiers pertinents et artefacts. |
-| `test-result "nom" --status passed [-d "détails"]` | Enregistre un résultat de test ; utilisez `failed` en cas d'échec. |
-| `check <exécutable> [arguments...]` | Exécute une commande sans shell, affiche sa sortie et conserve son résultat. |
-| `command-log "commande" [-d "résultat"]` | Consigne une commande exécutée ailleurs. |
-| `memory "texte"` | Ajoute une information durable, disponible aux autres sessions du projet. |
-| `summary` | Produit un résumé déterministe des tâches, notes, décisions, tests, erreurs et de Git. |
-| `search "termes"` | Recherche localement dans les sessions, décisions et enregistrements via SQLite FTS5. |
-| `export <id> --out <fichier>`, `import <fichier>` | Transfère une session dans une archive JSON versionnée. |
-| `context [--mode MODE] [--explain]` | Prévisualise le pack, ses sources, son budget et les chemins exclus. |
-| `run <agent> [--structured]`, `switch <agent> [--structured]` | Lance un agent avec le contexte actif. |
-| `continue <agent>` | Reprend une session native Claude ou Codex liée à un run structuré. |
-| `agents`, `doctor` | Liste les agents et vérifie l'environnement. |
-| `config show`, `config set-default-mode <mode>` | Affiche la configuration ou change le mode de contexte par défaut. |
-| `tui`, `serve`, `mcp` | Ouvre le menu terminal, l'API locale ou le serveur MCP. |
+| `init` | Initialize `.threadport/threadport.sqlite` in the current directory. |
+| `new "objective"`, `sessions`, `open <id>`, `resume <id>` | Create, list, and reactivate sessions. |
+| `status`, `timeline`, `snapshot` | Show the current state, events, and Git metadata. |
+| `decision "title" [-r "reason"]`, `decisions` | Record and review decisions. |
+| `task add "title"`, `task done <id>`, `task list` | Track tasks. |
+| `note "text"`, `error "title" [-d "details"]` | Record information or an issue. |
+| `constraint "text"`, `file <path>`, `files`, `artifact <path>` | Keep constraints, relevant files, and artifacts. |
+| `test-result "name" --status passed [-d "details"]` | Record a test result; use `failed` for a failure. |
+| `check <executable> [arguments...]` | Run a command without a shell, show its output, and save the result. |
+| `command-log "command" [-d "result"]` | Record a command run elsewhere. |
+| `memory "text"` | Add durable project knowledge available to other sessions. |
+| `summary` | Build a deterministic summary of tasks, notes, decisions, tests, errors, and Git state. |
+| `search "terms"` | Search sessions, decisions, and records locally with SQLite FTS5. |
+| `export <id> --out <file>`, `import <file>` | Transfer a session in a versioned JSON archive. |
+| `context [--mode MODE] [--explain]` | Preview the context pack, its sources, token budget, and excluded paths. |
+| `run <agent> [--structured]`, `switch <agent> [--structured]` | Launch an agent with the active session context. |
+| `continue <agent>` | Resume a linked native Claude or Codex session. |
+| `agents`, `doctor` | List configured agents and check the local environment. |
+| `config show`, `config set-default-mode <mode>` | View configuration or change the default context mode. |
+| `tui`, `serve`, `mcp` | Open the terminal menu, local HTTP API, or MCP server. |
 
-Les agents intégrés sont `claude` et `codex`. `run` et `switch` utilisent le mode configuré (`standard` par défaut). `switch` enregistre un événement de transfert si l'agent précédent était différent. Les données d'une exécution restée ouverte après un crash sont marquées `interrupted` au prochain accès, sauf si son processus propriétaire est toujours vivant.
+Built-in agents are `claude` and `codex`. `run` and `switch` use the configured context mode (`standard` by default). `switch` records a handoff event when the previous run used a different agent. If a process crashes, an unfinished run is marked `interrupted` on the next access unless its owner process is still running.
 
-### Transférer une session entre installations
+### Transfer a session between installations
 
 ```bash
 threadport sessions
 threadport export abc12345 --out session.json
-# Dans une autre copie du projet, après threadport init :
+# In another copy of the project, after threadport init:
 threadport import session.json
 ```
 
-L'archive version 1 contient la session, les runs, événements, décisions, notes et snapshots Git. L'import crée de nouveaux identifiants et marque tout ancien run encore ouvert comme interrompu. Les worktrees et leurs chemins locaux ne sont pas transférés. Le fichier JSON peut contenir des informations sensibles du projet : conservez-le comme une donnée privée.
+Version 1 archives include the session, runs, events, decisions, records, and Git snapshots. Import assigns new IDs and marks any previously open run as interrupted. Worktrees and local paths are not transferred. The JSON file may contain sensitive project information; handle it as private data.
 
-### Contexte
+### Context
 
-| Mode | Budget maximal | Sélection |
+| Mode | Maximum budget | Selection |
 | --- | ---: | --- |
-| `minimal` | 500 tokens | Objectif, informations prioritaires et quelques événements. |
-| `standard` | 1 500 tokens | Résumé, mémoire, contraintes, tâches ouvertes, erreurs, décisions, tests, notes, fichiers pertinents, artefacts et état Git selon l'espace disponible. |
-| `deep` | 4 000 tokens | Même base avec davantage d'événements et un diff Git filtré. |
-| `full` | 10 000 tokens | Même sélection avec un budget supérieur. |
+| `minimal` | 500 tokens | Objective, high-priority information, and a few events. |
+| `standard` | 1,500 tokens | Summary, memory, constraints, open tasks, errors, decisions, tests, notes, relevant files, artifacts, and Git state as space allows. |
+| `deep` | 4,000 tokens | The same foundation, with more events and a filtered Git diff. |
+| `full` | 10,000 tokens | The same selection with a larger budget. |
 
-Le comptage utilise `cl100k_base` : c'est une **mesure de référence**, pas une garantie de taille identique pour tous les modèles. Le pack sélectionne les sections par priorité et indique celles qui n'ont pas tenu dans le budget avec `--explain`. Les résumés réduisent la quantité d'historique envoyée ; les événements d'origine restent dans SQLite.
+Token counts use `cl100k_base` as a **reference measure**; they are not guaranteed to match every model's tokenizer. Sections are selected by priority. `--explain` shows which sections did not fit. Summaries reduce the history sent to an agent; the original events remain in SQLite.
 
-`threadport config set-default-mode deep` choisit le mode utilisé par `run`, `switch`, le menu, l'API et MCP. La configuration du projet vit dans `.threadport/config.json`. Vous pouvez aussi y ajouter des exclusions :
+`threadport config set-default-mode deep` selects the mode used by `run`, `switch`, the terminal menu, the API, and MCP. Project configuration lives in `.threadport/config.json`, where you can also add exclusions:
 
 ```json
 {
@@ -105,31 +105,31 @@ Le comptage utilise `cl100k_base` : c'est une **mesure de référence**, pas une
 }
 ```
 
-## Expérimenter avec des forks
+## Experiment with forks
 
-Les forks créent des [worktrees Git](https://git-scm.com/docs/git-worktree) à partir du **même commit**. Le dossier de départ doit être propre et posséder un commit `HEAD`. Les modifications non enregistrées ne sont jamais transférées automatiquement.
+Forks create [Git worktrees](https://git-scm.com/docs/git-worktree) from the **same commit**. The starting worktree must be clean and have a `HEAD` commit. Uncommitted changes are not copied automatically.
 
 ```bash
 threadport fork --agents claude,codex
 threadport fork list
-threadport fork run <id-claude> --structured
-threadport fork check <id-claude> npm test
-threadport fork run <id-codex> --structured
-threadport compare <id-claude> <id-codex>
-threadport compare <id-claude> <id-codex> --diff
+threadport fork run <claude-fork-id> --structured
+threadport fork check <claude-fork-id> npm test
+threadport fork run <codex-fork-id> --structured
+threadport compare <claude-fork-id> <codex-fork-id>
+threadport compare <claude-fork-id> <codex-fork-id> --diff
 ```
 
-`compare` présente fichiers et lignes modifiés, durée, commandes, erreurs, tests et tokens enregistrés lorsque disponibles. Il ne désigne aucun gagnant. `fork remove <id>` retire seulement un worktree **propre** et conserve sa branche Git.
+`compare` reports changed files and lines, duration, commands, errors, tests, and recorded tokens when available. It does not choose a winner. `fork remove <id>` removes only a **clean** worktree and keeps its Git branch.
 
-## Interfaces locales
+## Local interfaces
 
-- `threadport tui` : menu clavier pour consulter les sessions, le contexte, la timeline, les tâches et les runs ; ouvrir une session, rechercher, produire un résumé et gérer les notes et tâches.
-- `threadport serve --port 0` : API HTTP liée à `127.0.0.1`. La commande affiche son URL et un jeton Bearer temporaire. Lectures : `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/runs`, `/v1/search?q=terme`. Écritures JSON : `POST /v1/sessions`, `/v1/sessions/open`, `/v1/tasks/complete`, `/v1/summary`, `/v1/notes`, `/v1/tasks`, `/v1/decisions`, `/v1/memory`. Les créations utilisent `title`, l'ouverture et la clôture utilisent `id`.
-- `threadport mcp` : serveur MCP sur `stdio`. Les outils permettent de créer et d'ouvrir une session, lire le contexte, les événements, décisions, enregistrements et runs, rechercher, ajouter notes, tâches et décisions, terminer une tâche et produire un résumé. Le client MCP doit démarrer la commande avec la racine du projet comme dossier courant.
+- `threadport tui`: keyboard menu for sessions, context, timeline, tasks, and runs; you can open a session, search, write a summary, and manage notes and tasks.
+- `threadport serve --port 0`: HTTP API bound to `127.0.0.1`. The command prints its URL and a temporary Bearer token. Read endpoints: `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/runs`, `/v1/search?q=term`. JSON write endpoints: `POST /v1/sessions`, `/v1/sessions/open`, `/v1/tasks/complete`, `/v1/summary`, `/v1/notes`, `/v1/tasks`, `/v1/decisions`, and `/v1/memory`. Creation requests use `title`; opening a session and completing a task use `id`.
+- `threadport mcp`: MCP server over `stdio`. Tools create and open sessions; read context, events, decisions, records, and runs; search; add notes, tasks, and decisions; complete tasks; and write summaries. Start the MCP client with the project root as its working directory.
 
-### Adapter d'agent local
+### Local agent adapter
 
-Créez un manifest JSON, puis installez-le avec `threadport plugin add ./agent.json` :
+Create a JSON manifest and install it with `threadport plugin add ./agent.json`:
 
 ```json
 {
@@ -142,17 +142,17 @@ Créez un manifest JSON, puis installez-le avec `threadport plugin add ./agent.j
 }
 ```
 
-Le manifest est copié dans `.threadport/plugins/` ; `threadport plugin list` affiche les agents ajoutés. Il s'agit d'un point d'extension pour **agents CLI**. Les plugins de stockage, d'export et de hooks ne sont pas encore disponibles.
+The manifest is copied to `.threadport/plugins/`; `threadport plugin list` shows installed agents. This extension point supports **CLI agents**. External storage, export, and hook plugins are not yet available.
 
-## Stockage et confidentialité
+## Storage and privacy
 
-La base, les manifests et les worktrees se trouvent sous `.threadport/` dans le projet. `init` ne modifie pas le `.gitignore` du projet : ajoutez-y `.threadport/` pour éviter de versionner ces données.
+The database, agent manifests, and worktrees live under `.threadport/` in the project. `init` does not edit the project's `.gitignore`; add `.threadport/` there to avoid committing local data.
 
-Les snapshots persistés conservent la branche, le commit et les chemins modifiés, **pas le contenu du diff**. Un diff peut entrer dans un contexte `deep` ou `full` et dans `compare --diff`. Les exclusions par défaut couvrent `.env`, `.env.*`, `*.pem`, `*.key`, `credentials.json`, `secrets/**` et `.threadport/**`. Ajoutez des motifs dans `.threadportignore`, un par ligne :
+Stored snapshots contain the branch, commit, and changed file paths, **not the diff contents**. A diff may appear in `deep` or `full` context and in `compare --diff`. Default exclusions cover `.env`, `.env.*`, `*.pem`, `*.key`, `credentials.json`, `secrets/**`, and `.threadport/**`. Add one pattern per line to `.threadportignore`:
 
 ```gitignore
 private/**
 *.pem
 ```
 
-ThreadPort masque plusieurs formats courants de secrets avant de conserver des notes ou de transmettre un pack, mais cette détection reste heuristique. Vérifiez `threadport context --explain` avant un transfert sensible. Les agents lancés appliquent leurs propres règles d'accès aux données. L'API exige un jeton et reste locale ; un client MCP connecté peut lire le contexte et ajouter des informations à la session.
+ThreadPort redacts several common secret formats before storing notes or sending a context pack, but detection is heuristic. Review `threadport context --explain` before a sensitive handoff. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.

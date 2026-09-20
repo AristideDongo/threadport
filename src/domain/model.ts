@@ -87,11 +87,11 @@ export interface Snapshot {
 
 export function assertTitle(title: string): string {
   const value = title.trim();
-  if (!value || value.length > 200) throw new Error('Le titre doit contenir entre 1 et 200 caractères.');
+  if (!value || value.length > 200) throw new Error('Title must contain between 1 and 200 characters.');
   return value;
 }
 
 export function assertMode(value: string): ContextMode {
   if (value === 'minimal' || value === 'standard' || value === 'deep' || value === 'full') return value;
-  throw new Error(`Mode inconnu : ${value}. Choisissez minimal, standard, deep ou full.`);
+  throw new Error(`Unknown mode: ${value}. Choose minimal, standard, deep, or full.`);
 }

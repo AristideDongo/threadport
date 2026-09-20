@@ -6,9 +6,9 @@ import type { AgentRun, Decision, Fork, GitState, SearchHit, Session, Snapshot, 
 import type { SessionStore } from '../application/ports.js';
 
 type Row = Record<string, unknown>;
-function str(value: unknown): string { if (typeof value !== 'string') throw new Error('Données SQLite invalides.'); return value; }
+function str(value: unknown): string { if (typeof value !== 'string') throw new Error('Invalid SQLite data.'); return value; }
 function nullableStr(value: unknown): string | null { return value === null ? null : str(value); }
-function nullableNum(value: unknown): number | null { if (value === null) return null; if (typeof value !== 'number') throw new Error('Données SQLite invalides.'); return value; }
+function nullableNum(value: unknown): number | null { if (value === null) return null; if (typeof value !== 'number') throw new Error('Invalid SQLite data.'); return value; }
 function session(row: Row): Session { return { id: str(row.id), title: str(row.title), status: str(row.status) as Session['status'], createdAt: str(row.created_at), updatedAt: str(row.updated_at) }; }
 function run(row: Row): AgentRun { return { id: str(row.id), sessionId: str(row.session_id), agentId: str(row.agent_id), status: str(row.status) as AgentRun['status'], startedAt: str(row.started_at), endedAt: nullableStr(row.ended_at), exitCode: nullableNum(row.exit_code), ownerPid: row.owner_pid === undefined ? null : nullableNum(row.owner_pid), forkId: row.fork_id === undefined ? null : nullableStr(row.fork_id), providerSessionId: row.provider_session_id === undefined ? null : nullableStr(row.provider_session_id) }; }
 function event(row: Row): TimelineEvent { return { id: str(row.id), sessionId: str(row.session_id), type: str(row.type), message: str(row.message), createdAt: str(row.created_at) }; }
@@ -17,7 +17,7 @@ function record(row: Row): WorkRecord { return { id: str(row.id), sessionId: str
 function fork(row: Row): Fork { return { id: str(row.id), sessionId: str(row.session_id), agentId: str(row.agent_id), branch: str(row.branch), path: str(row.path), baseHead: str(row.base_head), createdAt: str(row.created_at) }; }
 function gitState(raw: string): GitState {
   const value: unknown = JSON.parse(raw);
-  if (typeof value !== 'object' || value === null || !('changedFiles' in value) || !Array.isArray(value.changedFiles)) throw new Error('Snapshot Git invalide.');
+  if (typeof value !== 'object' || value === null || !('changedFiles' in value) || !Array.isArray(value.changedFiles)) throw new Error('Invalid Git snapshot.');
   return value as GitState;
 }
 
@@ -30,7 +30,7 @@ export class SqliteStore implements SessionStore {
     this.db.exec('BEGIN IMMEDIATE');
     try {
     const version = this.db.prepare('PRAGMA user_version').get() as Row | undefined;
-    if (version && Number(version.user_version) > 5) throw new Error('Base créée par une version plus récente de ThreadPort.');
+    if (version && Number(version.user_version) > 5) throw new Error('Database was created by a newer version of ThreadPort.');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), agent_id TEXT NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT, exit_code INTEGER);

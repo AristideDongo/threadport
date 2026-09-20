@@ -15,7 +15,7 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string);
     size += buffer.length;
-    if (size > 64_000) throw new Error('Corps de requête trop volumineux.');
+    if (size > 64_000) throw new Error('Request body is too large.');
     chunks.push(buffer);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
@@ -45,7 +45,7 @@ export async function serveApi(app: ThreadPort, cwd: string, port: number): Prom
             const kind = url.pathname === '/v1/tasks' ? 'task' : url.pathname === '/v1/memory' ? 'memory' : 'note';
             const item = app.addRecord(kind, input.title, input.body ?? '', kind === 'task' ? 'open' : 'info');
             respond(response, 201, item);
-          } catch (error: unknown) { respond(response, error instanceof Error && error.message.includes('trop volumineux') ? 413 : 400, { error: error instanceof Error ? error.message : String(error) }); }
+          } catch (error: unknown) { respond(response, error instanceof Error && error.message.includes('too large') ? 413 : 400, { error: error instanceof Error ? error.message : String(error) }); }
         })();
         return;
       }
@@ -60,7 +60,7 @@ export async function serveApi(app: ThreadPort, cwd: string, port: number): Prom
               const { id } = idInput.parse(input);
               respond(response, 200, url.pathname === '/v1/sessions/open' ? app.open(id) : app.completeTask(id));
             }
-          } catch (error: unknown) { respond(response, error instanceof Error && error.message.includes('trop volumineux') ? 413 : 400, { error: error instanceof Error ? error.message : String(error) }); }
+          } catch (error: unknown) { respond(response, error instanceof Error && error.message.includes('too large') ? 413 : 400, { error: error instanceof Error ? error.message : String(error) }); }
         })();
         return;
       }

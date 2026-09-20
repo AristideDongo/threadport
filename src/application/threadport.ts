@@ -11,7 +11,7 @@ export class ThreadPort {
   active(): Session | null { return this.store.getActiveSession(); }
   session(id: string): Session {
     const session = this.store.getSession(id);
-    if (!session) throw new Error(`Session introuvable : ${id}`);
+    if (!session) throw new Error(`Session not found: ${id}`);
     return session;
   }
   newSession(title: string): Session {
@@ -61,7 +61,7 @@ export class ThreadPort {
   }
   completeTask(id: string): WorkRecord {
     const task = this.store.getRecord(id);
-    if (!task || task.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Tâche introuvable : ${id}`);
+    if (!task || task.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Task not found: ${id}`);
     const done: WorkRecord = { ...task, status: 'done' };
     this.store.updateRecord(done);
     this.event(task.sessionId, 'TaskCompleted', task.title);
@@ -105,10 +105,10 @@ export class ThreadPort {
   snapshot(): Snapshot {
     const session = this.requireActive();
     const git = this.git.read(this.cwd);
-    if (!git) throw new Error('Ce dossier n’est pas un dépôt Git.');
+    if (!git) throw new Error('This directory is not a Git repository.');
     const snapshot: Snapshot = { id: randomUUID(), sessionId: session.id, createdAt: new Date().toISOString(), git: { ...git, diff: '' } };
     this.store.addSnapshot(snapshot);
-    this.event(session.id, 'ContextSnapshotCreated', `${git.changedFiles.length} fichier(s) modifié(s)`);
+    this.event(session.id, 'ContextSnapshotCreated', `${git.changedFiles.length} changed file(s)`);
     return snapshot;
   }
   context(mode: ContextMode, patterns: readonly string[]): string {
@@ -121,8 +121,8 @@ export class ThreadPort {
   }
   async run(adapter: AgentAdapter, runner: AgentRunner, contextFile: string, providerSessionId: string | null = null): Promise<AgentRun> {
     const session = this.requireActive();
-    if (this.store.listRuns(session.id).some((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id))) throw new Error('Une exécution est déjà active dans cet environnement.');
-    if (!runner.available(adapter.command)) throw new Error(`${adapter.label} est introuvable (${adapter.command}). Lancez « threadport doctor ».`);
+    if (this.store.listRuns(session.id).some((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id))) throw new Error('A run is already active in this environment.');
+    if (!runner.available(adapter.command)) throw new Error(`${adapter.label} was not found (${adapter.command}). Run "threadport doctor".`);
     const previous = this.store.listRuns(session.id).at(-1);
     this.snapshotIfGit();
     if (previous && previous.agentId !== adapter.id) this.event(session.id, 'AgentSwitched', `${previous.agentId} → ${adapter.id}`);
@@ -135,13 +135,13 @@ export class ThreadPort {
     const finished: AgentRun = { ...run, status: code === 0 ? 'completed' : 'failed', endedAt: new Date().toISOString(), exitCode: code };
     this.store.updateRun(finished);
     this.snapshotIfGit();
-    this.event(session.id, 'AgentRunStopped', `${adapter.label} (code ${code})`);
+    this.event(session.id, 'AgentRunStopped', `${adapter.label} (exit code ${code})`);
     this.summarize();
     return finished;
   }
   private snapshotIfGit(): void { if (this.git.read(this.cwd)) this.snapshot(); }
   private forkId(sessionId: string): string | null { return this.store.listForks(sessionId).find((fork) => fork.path === this.cwd)?.id ?? null; }
-  private requireActive(): Session { const session = this.active(); if (!session) throw new Error('Aucune session active. Lancez « threadport new <objectif> ».'); return session; }
+  private requireActive(): Session { const session = this.active(); if (!session) throw new Error('No active session. Run "threadport new <objective>".'); return session; }
   private event(sessionId: string, type: string, message: string): void {
     this.store.addEvent({ id: randomUUID(), sessionId, type, message, createdAt: new Date().toISOString() });
   }

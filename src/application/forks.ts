@@ -8,10 +8,10 @@ export class Forks {
   constructor(private readonly store: SessionStore, private readonly reader: GitReader, private readonly worktrees: WorktreePort, private readonly root: string) {}
   create(agents: string[]): Fork[] {
     const session = this.store.getActiveSession();
-    if (!session) throw new Error('Aucune session active.');
+    if (!session) throw new Error('No active session.');
     const state = this.reader.read(this.root);
-    if (!state?.head) throw new Error('Les forks nécessitent un dépôt Git avec un commit HEAD.');
-    if (state.changedFiles.length) throw new Error('Le dépôt contient des modifications. Enregistrez-les avant de créer des forks pour garantir une base identique.');
+    if (!state?.head) throw new Error('Forks require a Git repository with a HEAD commit.');
+    if (state.changedFiles.length) throw new Error('The repository has uncommitted changes. Commit or stash them before creating forks so they share the same starting point.');
     const forks: Fork[] = [];
     for (const agentId of agents) {
       const id = randomUUID().slice(0, 8);
@@ -22,14 +22,14 @@ export class Forks {
     }
     return forks;
   }
-  list(): Fork[] { const session = this.store.getActiveSession(); if (!session) throw new Error('Aucune session active.'); return this.store.listForks(session.id); }
-  get(id: string): Fork { const item = this.list().find((fork) => fork.id === id); if (!item) throw new Error(`Fork introuvable : ${id}`); return item; }
+  list(): Fork[] { const session = this.store.getActiveSession(); if (!session) throw new Error('No active session.'); return this.store.listForks(session.id); }
+  get(id: string): Fork { const item = this.list().find((fork) => fork.id === id); if (!item) throw new Error(`Fork not found: ${id}`); return item; }
   remove(id: string): void { const fork = this.get(id); this.worktrees.remove(this.root, fork); this.store.deleteFork(id); }
   diff(id: string): string { return this.worktrees.diff(this.get(id)); }
   compare(firstId: string, secondId: string) {
     const first = this.get(firstId);
     const second = this.get(secondId);
-    if (first.baseHead !== second.baseHead) throw new Error('Ces forks ne partagent pas le même commit de base.');
+    if (first.baseHead !== second.baseHead) throw new Error('These forks do not share the same base commit.');
     return [first, second].map((fork) => {
       const records = this.store.listRecords(fork.sessionId).filter((record) => record.forkId === fork.id);
       const runs = this.store.listRuns(fork.sessionId).filter((run) => run.forkId === fork.id);

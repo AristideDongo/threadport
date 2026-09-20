@@ -47,6 +47,7 @@ it('serves authenticated session and task workflows over HTTP', async () => {
     expect((await summary.json() as { body: string }).body).toContain('Write API test');
     expect((await request('/v1/runs')).status).toBe(200);
     expect((await request('/v1/sessions/open', 'POST', { id: session.id })).status).toBe(200);
+    expect((await request('/v1/notes', 'POST', { title: 'Oversized', body: 'x'.repeat(65_000) })).status).toBe(413);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
