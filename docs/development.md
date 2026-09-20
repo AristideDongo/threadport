@@ -31,6 +31,8 @@ npm run build
 npm audit --audit-level=moderate
 ```
 
+CI runs these checks on Linux, macOS, and Windows. It keeps a stable `verify` status for branch protection. A maintainer with configured agent accounts can also run `npm run test:agents:live -- claude` or `npm run test:agents:live -- codex`; this makes a small live request to catch provider JSON format changes.
+
 Tests cover local workflows and simulated structured provider formats. A live Claude or Codex check requires an installed agent, a configured account, and an intentional run. Provider formats may evolve.
 
 ## Capture boundaries

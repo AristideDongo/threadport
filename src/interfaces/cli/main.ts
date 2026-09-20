@@ -14,13 +14,14 @@ import { GitCliReader } from '../../infrastructure/git.js';
 import { GitWorktrees } from '../../infrastructure/git-worktrees.js';
 import { Forks } from '../../application/forks.js';
 import { LocalCommandExecutor } from '../../infrastructure/command-executor.js';
-import { adapterById, adapters, TerminalAgentRunner } from '../../infrastructure/agents.js';
+import { adapterById, adapters, agentVersion, TerminalAgentRunner } from '../../infrastructure/agents.js';
 import { installAgentPlugin, loadAgentPlugins } from '../../infrastructure/agent-plugins.js';
 import { openMenu } from '../tui/menu.js';
 import { serveApi } from '../api/server.js';
 import { serveMcp } from '../mcp/server.js';
 import { StructuredAgentRunner } from '../../infrastructure/structured-agent.js';
 import { packageVersion } from '../../infrastructure/package-info.js';
+import { findProjectRoot, handleLifecycleHook, installLifecycleHooks } from '../../infrastructure/lifecycle-hooks.js';
 
 const cwd = process.cwd();
 const projectDir = join(cwd, '.threadport');
@@ -35,7 +36,7 @@ function project(create = false): { app: ThreadPort; store: SqliteStore } {
   if (!create && !existsSync(dbPath)) throw new Error('Project is not initialized. Run "threadport init".');
   if (create) mkdirSync(projectDir, { recursive: true, mode: 0o700 });
   const store = new SqliteStore(dbPath);
-  const app = new ThreadPort(store, git, cwd);
+  const app = new ThreadPort(store, git, cwd, loadExcludes(cwd));
   const recovered = app.recover();
   if (recovered) console.error(`↺ Recovered ${recovered} interrupted run(s).`);
   return { app, store };
@@ -86,6 +87,18 @@ cli.command('open <id>').description('Activate an existing session').action((id:
   const session = app.open(id);
   console.log(`✓ Active session: ${session.id} — ${session.title}`);
 }));
+cli.command('finish <id>').description('Mark a session as finished').action((id: string) => withProject((app) => {
+  const session = app.finish(id);
+  console.log(`✓ Session finished: ${session.id} — ${session.title}`);
+}));
+cli.command('rename <id> <title>').description('Rename a session').action((id: string, title: string) => withProject((app) => {
+  const session = app.rename(id, title);
+  console.log(`✓ Session renamed: ${session.id} — ${session.title}`);
+}));
+cli.command('delete <id>').description('Permanently delete a session and its history').action((id: string) => withProject((app) => {
+  app.deleteSession(id);
+  console.log(`✓ Session deleted: ${id}`);
+}));
 cli.command('resume <id>').description('Reactivate a session and print its context').option('-m, --mode <mode>', 'Context detail level', contextMode).action((id: string, options: { mode?: ReturnType<typeof assertMode> }) => withProject((app) => {
   app.open(id);
   console.log(app.context(options.mode ?? readConfig(cwd).context.defaultMode, loadExcludes(cwd)));
@@ -115,6 +128,15 @@ cli.command('decisions').description('List decisions').action(() => withProject(
 cli.command('note <text>').description('Record a work note').action((value: string) => withProject((app) => {
   const item = app.addRecord('note', value);
   console.log(`✓ Note ${item.id} recorded.`);
+}));
+const recordCommand = cli.command('record').description('Edit or delete session records');
+recordCommand.command('edit <id> <title>').description('Edit a record title and optional details').option('-d, --details <text>', 'Replace record details').action((id: string, title: string, options: { details?: string }) => withProject((app) => {
+  const item = app.updateRecord(id, title, options.details);
+  console.log(`✓ Record updated: ${item.id}`);
+}));
+recordCommand.command('delete <id>').description('Delete a record').action((id: string) => withProject((app) => {
+  app.deleteRecord(id);
+  console.log(`✓ Record deleted: ${id}`);
 }));
 const task = cli.command('task').description('Manage session tasks');
 task.command('add <title>').description('Add an open task').action((title: string) => withProject((app) => {
@@ -180,7 +202,7 @@ cli.command('search <query>').description('Search sessions, decisions, and recor
 cli.command('export <id>').description('Export a session as portable JSON').requiredOption('-o, --out <file>', 'Destination file').action((id: string, options: { out: string }) => {
   const { store } = project();
   try {
-    const archive = new SessionTransfer(store).export(id);
+    const archive = new SessionTransfer(store, loadExcludes(cwd)).export(id);
     writeFileSync(options.out, JSON.stringify(archive, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
     console.log(`✓ Session ${id} exported: ${resolve(options.out)}`);
   } finally { store.close(); }
@@ -190,7 +212,7 @@ cli.command('import <file>').description('Import a JSON session archive').action
   const input: unknown = JSON.parse(readFileSync(file, 'utf8'));
   const { store } = project();
   try {
-    const session = new SessionTransfer(store).import(input);
+    const session = new SessionTransfer(store, loadExcludes(cwd)).import(input);
     console.log(`✓ Session imported: ${session.id} — ${session.title}`);
   } finally { store.close(); }
 });
@@ -220,14 +242,14 @@ forkCommand.command('run <id>').description('Launch the assigned agent in its wo
   const { store } = project();
   try {
     const fork = new Forks(store, git, worktrees, cwd).get(id);
-    await launchIn(new ThreadPort(store, git, fork.path), fork.agentId, fork.path, options.structured === true);
+    await launchIn(new ThreadPort(store, git, fork.path, loadExcludes(cwd)), fork.agentId, fork.path, options.structured === true);
   } finally { store.close(); }
 });
 forkCommand.command('check <id> <executable> [args...]').description('Run a command in a fork and record its result').action(async (id: string, executable: string, args: string[]) => {
   const { store } = project();
   try {
     const fork = new Forks(store, git, worktrees, cwd).get(id);
-    const code = await new ThreadPort(store, git, fork.path).check(executable, args, new LocalCommandExecutor());
+    const code = await new ThreadPort(store, git, fork.path, loadExcludes(cwd)).check(executable, args, new LocalCommandExecutor());
     if (code !== 0) process.exitCode = code;
   } finally { store.close(); }
 });
@@ -258,6 +280,35 @@ config.command('set-default-mode <mode>').description('Set the default context m
   const setting = setDefaultMode(cwd, assertMode(value));
   console.log(`✓ Default mode: ${setting.context.defaultMode}`);
 }));
+cli.command('privacy').description('Manage stored private data').command('scrub').description('Redact existing records and remove excluded file references').action(() => withProject((app) => {
+  const result = app.scrub();
+  console.log(`✓ Privacy scrub complete: ${result.updated} updated, ${result.removed} excluded records removed.`);
+}));
+const hook = cli.command('hook').description('Install and receive optional agent lifecycle hooks');
+hook.command('install <agent>').description('Install local Claude or Codex hooks in this project').action((agent: string) => {
+  if (agent !== 'claude' && agent !== 'codex') throw new Error('Choose claude or codex.');
+  if (!existsSync(dbPath)) throw new Error('Initialize the project first with "threadport init".');
+  console.log(`✓ Hooks installed: ${installLifecycleHooks(cwd, agent)}`);
+  if (agent === 'codex') console.log('Review and trust the new project hooks with /hooks in Codex.');
+});
+hook.command('ingest <agent>').description('Receive a lifecycle event from an agent').action(async (agent: string) => {
+  if (agent !== 'claude' && agent !== 'codex') return;
+  const root = findProjectRoot(cwd);
+  if (!root) return;
+  let input = '';
+  for await (const chunk of process.stdin) {
+    input += String(chunk);
+    if (input.length > 128_000) return;
+  }
+  let value: unknown;
+  try { value = JSON.parse(input) as unknown; } catch { return; }
+  const store = new SqliteStore(join(root, '.threadport', 'threadport.sqlite'));
+  try {
+    const app = new ThreadPort(store, git, root, loadExcludes(root));
+    const output = handleLifecycleHook(app, root, agent, value);
+    if (output) process.stdout.write(output + '\n');
+  } finally { store.close(); }
+});
 const plugin = cli.command('plugin').description('Manage local agent adapters');
 plugin.command('add <manifest>').description('Install an agent JSON manifest in the project').action((path: string) => {
   const value = installAgentPlugin(projectDir, path);
@@ -271,7 +322,8 @@ cli.command('doctor').description('Check the local environment').action(() => {
   console.log(`Project  ${existsSync(dbPath) ? 'initialized ✓' : 'not initialized'}`);
   console.log(`Git      ${git.read(cwd) ? 'repository found ✓' : 'no repository'}`);
   console.log(`Config   ${readConfig(cwd).context.defaultMode}`);
-  for (const agent of knownAgents()) console.log(`${agent.label.padEnd(11)} ${runner.available(agent.command) ? 'available ✓' : 'missing'}`);
+  for (const agent of knownAgents()) console.log(`${agent.label.padEnd(11)} ${runner.available(agent.command) ? `${agentVersion(agent.command) ?? 'available'} ✓` : 'missing'}`);
+  console.log('Structured capture should be checked after agent CLI upgrades.');
 });
 cli.command('tui').description('Open the interactive terminal menu').action(async () => withProjectAsync((app) => openMenu(app, cwd)));
 cli.command('serve').description('Start a local API with a temporary token').option('-p, --port <port>', 'TCP port', '0').action(async (options: { port: string }) => withProjectAsync((app) => {
@@ -279,7 +331,14 @@ cli.command('serve').description('Start a local API with a temporary token').opt
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid port.');
   return serveApi(app, cwd, port);
 }));
-cli.command('mcp').description('Start the MCP stdio server').action(async () => withProjectAsync((app) => serveMcp(app, cwd)));
+const mcp = cli.command('mcp').description('Start or configure the MCP server');
+mcp.action(async () => withProjectAsync((app) => serveMcp(app, cwd)));
+mcp.command('setup').description('Show commands to connect Claude Code or Codex to this project').action(() => {
+  console.log('From this project directory, configure an MCP client with one of these commands:');
+  console.log('  codex mcp add threadport -- threadport mcp');
+  console.log('  claude mcp add --scope project threadport -- threadport mcp');
+  console.log('The client must start ThreadPort with this project as its working directory.');
+});
 
 async function launch(agentId: string, options: { structured?: boolean }): Promise<void> {
   await withProjectAsync(async (app) => launchIn(app, agentId, cwd, options.structured === true));

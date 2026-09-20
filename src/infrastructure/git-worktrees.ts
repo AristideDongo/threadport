@@ -18,7 +18,7 @@ export class GitWorktrees {
     const untracked = git(fork.path, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean);
     for (const path of untracked) {
       if (output.length >= 200_000) break;
-      try { output += git(fork.path, ['diff', '--no-index', '--', '/dev/null', path]); }
+      try { output += git(fork.path, ['diff', '--no-index', '--', process.platform === 'win32' ? 'NUL' : '/dev/null', path]); }
       catch (error: unknown) {
         const result = error as { status?: number; stdout?: string | Buffer };
         if (result.status !== 1) throw error;

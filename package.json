@@ -1,6 +1,6 @@
 {
   "name": "threadport",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "CLI for carrying development context across AI coding agents",
   "license": "MIT",
   "repository": {
@@ -32,6 +32,7 @@
     "prepack": "npm run build",
     "dev": "tsx src/interfaces/cli/main.ts",
     "test": "vitest run",
+    "test:agents:live": "tsx scripts/agent-smoke.ts",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

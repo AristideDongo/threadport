@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { AgentRun, Decision, Fork, GitState, SearchHit, Session, Snapshot, TimelineEvent, WorkRecord } from '../domain/model.js';
 import type { SessionStore } from '../application/ports.js';
+import { excluded, redact } from '../application/context.js';
 
 type Row = Record<string, unknown>;
 function str(value: unknown): string { if (typeof value !== 'string') throw new Error('Invalid SQLite data.'); return value; }
@@ -65,7 +66,17 @@ export class SqliteStore implements SessionStore {
     catch (error: unknown) { this.db.exec('ROLLBACK'); throw error; }
   }
   createSession(value: Session): void { this.db.prepare('INSERT INTO sessions VALUES (?, ?, ?, ?, ?)').run(value.id, value.title, value.status, value.createdAt, value.updatedAt); this.index('session', value.id, value.id, value.title, ''); }
-  updateSession(value: Session): void { this.db.prepare('UPDATE sessions SET title=?, status=?, updated_at=? WHERE id=?').run(value.title, value.status, value.updatedAt, value.id); }
+  updateSession(value: Session): void {
+    this.db.prepare('UPDATE sessions SET title=?, status=?, updated_at=? WHERE id=?').run(value.title, value.status, value.updatedAt, value.id);
+    this.db.prepare("UPDATE search_index SET title=? WHERE source='session' AND id=?").run(value.title, value.id);
+  }
+  deleteSession(id: string): void {
+    this.transaction(() => {
+      for (const table of ['events', 'decisions', 'runs', 'snapshots', 'work_records', 'forks']) this.db.prepare(`DELETE FROM ${table} WHERE session_id=?`).run(id);
+      this.db.prepare('DELETE FROM search_index WHERE session_id=?').run(id);
+      this.db.prepare('DELETE FROM sessions WHERE id=?').run(id);
+    });
+  }
   getSession(id: string): Session | null { const row = this.db.prepare('SELECT * FROM sessions WHERE id=?').get(id) as Row | undefined; return row ? session(row) : null; }
   listSessions(): Session[] { return (this.db.prepare('SELECT * FROM sessions ORDER BY updated_at DESC').all() as Row[]).map(session); }
   getActiveSession(): Session | null { const row = this.db.prepare("SELECT * FROM sessions WHERE status='active' ORDER BY updated_at DESC LIMIT 1").get() as Row | undefined; return row ? session(row) : null; }
@@ -87,7 +98,7 @@ export class SqliteStore implements SessionStore {
     try {
       for (const row of pending) {
         const updated = this.db.prepare("UPDATE runs SET status='interrupted', ended_at=? WHERE id=? AND status='running'").run(now, str(row.id));
-        if (updated.changes) this.db.prepare('INSERT INTO events VALUES (?, ?, ?, ?, ?)').run(randomUUID(), str(row.session_id), 'AgentRunInterrupted', `${str(row.agent_id)} interrompu avant la fermeture normale`, now);
+        if (updated.changes) this.db.prepare('INSERT INTO events VALUES (?, ?, ?, ?, ?)').run(randomUUID(), str(row.session_id), 'AgentRunInterrupted', `${str(row.agent_id)} interrupted before normal shutdown`, now);
       }
       this.db.exec('COMMIT');
     } catch (error: unknown) { this.db.exec('ROLLBACK'); throw error; }
@@ -110,6 +121,12 @@ export class SqliteStore implements SessionStore {
     this.db.prepare("DELETE FROM search_index WHERE source='record' AND id=?").run(value.id);
     this.index('record', value.id, value.sessionId, value.title, value.body);
   }
+  deleteRecord(id: string): void {
+    const previous = this.db.prepare('SELECT session_id,title FROM work_records WHERE id=?').get(id) as Row | undefined;
+    this.db.prepare('DELETE FROM work_records WHERE id=?').run(id);
+    this.db.prepare("DELETE FROM search_index WHERE source='record' AND id=?").run(id);
+    if (previous) this.db.prepare('DELETE FROM events WHERE session_id=? AND message=?').run(str(previous.session_id), str(previous.title));
+  }
   listRecords(sessionId: string): WorkRecord[] { return (this.db.prepare('SELECT * FROM work_records WHERE session_id=? ORDER BY created_at, rowid').all(sessionId) as Row[]).map(record); }
   listProjectMemory(): WorkRecord[] { return (this.db.prepare("SELECT * FROM work_records WHERE kind='memory' AND fork_id IS NULL ORDER BY created_at, rowid").all() as Row[]).map(record); }
   getRecord(id: string): WorkRecord | null { const row = this.db.prepare('SELECT * FROM work_records WHERE id=?').get(id) as Row | undefined; return row ? record(row) : null; }
@@ -122,5 +139,46 @@ export class SqliteStore implements SessionStore {
   addFork(value: Fork): void { this.db.prepare('INSERT INTO forks VALUES (?, ?, ?, ?, ?, ?, ?)').run(value.id, value.sessionId, value.agentId, value.branch, value.path, value.baseHead, value.createdAt); }
   deleteFork(id: string): void { this.db.prepare('DELETE FROM forks WHERE id=?').run(id); }
   listForks(sessionId: string): Fork[] { return (this.db.prepare('SELECT * FROM forks WHERE session_id=? ORDER BY created_at').all(sessionId) as Row[]).map(fork); }
+  scrub(patterns: readonly string[]): { updated: number; removed: number } {
+    return this.transaction(() => {
+      let updated = 0;
+      let removed = 0;
+      for (const row of this.db.prepare('SELECT id,title FROM sessions').all() as Row[]) {
+        const title = redact(str(row.title));
+        if (title !== row.title) { this.db.prepare('UPDATE sessions SET title=? WHERE id=?').run(title, str(row.id)); updated++; }
+      }
+      for (const row of this.db.prepare('SELECT id,message FROM events').all() as Row[]) {
+        if (excluded(str(row.message), patterns)) { this.db.prepare('DELETE FROM events WHERE id=?').run(str(row.id)); removed++; continue; }
+        const message = redact(str(row.message));
+        if (message !== row.message) { this.db.prepare('UPDATE events SET message=? WHERE id=?').run(message, str(row.id)); updated++; }
+      }
+      for (const row of this.db.prepare('SELECT id,title,rationale FROM decisions').all() as Row[]) {
+        const title = redact(str(row.title));
+        const rationale = redact(str(row.rationale));
+        if (title !== row.title || rationale !== row.rationale) { this.db.prepare('UPDATE decisions SET title=?, rationale=? WHERE id=?').run(title, rationale, str(row.id)); updated++; }
+      }
+      for (const row of this.db.prepare('SELECT id,kind,title,body FROM work_records').all() as Row[]) {
+        const id = str(row.id);
+        if ((row.kind === 'file' || row.kind === 'artifact') && excluded(str(row.title), patterns)) {
+          this.db.prepare('DELETE FROM work_records WHERE id=?').run(id); removed++; continue;
+        }
+        const title = redact(str(row.title));
+        const body = redact(str(row.body));
+        if (title !== row.title || body !== row.body) { this.db.prepare('UPDATE work_records SET title=?,body=? WHERE id=?').run(title, body, id); updated++; }
+      }
+      for (const row of this.db.prepare('SELECT id,git_json FROM snapshots').all() as Row[]) {
+        const git = gitState(str(row.git_json));
+        const changedFiles = git.changedFiles.filter((path) => !excluded(path, patterns)).map(redact);
+        if (changedFiles.length !== git.changedFiles.length || changedFiles.some((path, index) => path !== git.changedFiles[index]) || git.diff) {
+          this.db.prepare('UPDATE snapshots SET git_json=? WHERE id=?').run(JSON.stringify({ ...git, changedFiles, diff: '' }), str(row.id)); updated++;
+        }
+      }
+      this.db.prepare('DELETE FROM search_index').run();
+      this.db.exec("INSERT INTO search_index (source,id,session_id,title,body) SELECT 'session',id,id,title,'' FROM sessions");
+      this.db.exec("INSERT INTO search_index (source,id,session_id,title,body) SELECT 'decision',id,session_id,title,rationale FROM decisions");
+      this.db.exec("INSERT INTO search_index (source,id,session_id,title,body) SELECT 'record',id,session_id,title,body FROM work_records");
+      return { updated, removed };
+    });
+  }
   private index(source: string, id: string, sessionId: string, title: string, body: string): void { this.db.prepare('INSERT INTO search_index (source,id,session_id,title,body) VALUES (?, ?, ?, ?, ?)').run(source, id, sessionId, title, body); }
 }

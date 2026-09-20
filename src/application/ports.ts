@@ -4,6 +4,7 @@ export interface SessionStore {
   transaction<T>(work: () => T): T;
   createSession(session: Session): void;
   updateSession(session: Session): void;
+  deleteSession(id: string): void;
   getSession(id: string): Session | null;
   listSessions(): Session[];
   getActiveSession(): Session | null;
@@ -21,6 +22,7 @@ export interface SessionStore {
   listSnapshots(sessionId: string): Snapshot[];
   addRecord(record: WorkRecord): void;
   updateRecord(record: WorkRecord): void;
+  deleteRecord(id: string): void;
   listRecords(sessionId: string): WorkRecord[];
   listProjectMemory(): WorkRecord[];
   getRecord(id: string): WorkRecord | null;
@@ -28,6 +30,7 @@ export interface SessionStore {
   addFork(fork: Fork): void;
   deleteFork(id: string): void;
   listForks(sessionId: string): Fork[];
+  scrub(patterns: readonly string[]): { updated: number; removed: number };
 }
 
 export interface GitReader {

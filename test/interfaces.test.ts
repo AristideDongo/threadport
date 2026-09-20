@@ -2,21 +2,20 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SqliteStore } from '../src/infrastructure/sqlite-store.js';
 
-const children: ReturnType<typeof spawn>[] = [];
-afterEach(() => { for (const child of children.splice(0)) child.kill('SIGTERM'); });
+const tsxLoader = import.meta.resolve('tsx');
 
 it('serves authenticated session and task workflows over HTTP', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'threadport-api-test-'));
   const store = new SqliteStore(join(cwd, '.threadport', 'threadport.sqlite'));
   store.close();
+  let child: ReturnType<typeof spawn> | undefined;
   try {
-    const child = spawn(join(process.cwd(), 'node_modules', '.bin', 'tsx'), [join(process.cwd(), 'src', 'interfaces', 'cli', 'main.ts'), 'serve'], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-    children.push(child);
+    child = spawn(process.execPath, ['--import', tsxLoader, join(process.cwd(), 'src', 'interfaces', 'cli', 'main.ts'), 'serve'], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     const ready = await new Promise<{ url: string; token: string }>((resolve, reject) => {
       let output = '';
       const timer = setTimeout(() => reject(new Error(`API startup timed out: ${output}`)), 10_000);
@@ -47,8 +46,19 @@ it('serves authenticated session and task workflows over HTTP', async () => {
     expect((await summary.json() as { body: string }).body).toContain('Write API test');
     expect((await request('/v1/runs')).status).toBe(200);
     expect((await request('/v1/sessions/open', 'POST', { id: session.id })).status).toBe(200);
+    const updated = await request('/v1/records/update', 'POST', { id: task.id, title: 'Write broader API test' });
+    expect((await updated.json() as { title: string }).title).toBe('Write broader API test');
+    expect((await request('/v1/sessions/finish', 'POST', { id: session.id })).status).toBe(200);
+    expect((await request('/v1/sessions/open', 'POST', { id: session.id })).status).toBe(200);
     expect((await request('/v1/notes', 'POST', { title: 'Oversized', body: 'x'.repeat(65_000) })).status).toBe(413);
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+  } finally {
+    if (child && child.exitCode === null) {
+      const closed = new Promise<void>((resolve) => child?.once('close', () => resolve()));
+      child.kill('SIGTERM');
+      await closed;
+    }
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
 it('exposes session and task workflows through MCP', async () => {
@@ -57,8 +67,8 @@ it('exposes session and task workflows through MCP', async () => {
   store.close();
   const client = new Client({ name: 'threadport-test', version: '1.0.0' });
   const transport = new StdioClientTransport({
-    command: join(process.cwd(), 'node_modules', '.bin', 'tsx'),
-    args: [join(process.cwd(), 'src', 'interfaces', 'cli', 'main.ts'), 'mcp'],
+    command: process.execPath,
+    args: ['--import', tsxLoader, join(process.cwd(), 'src', 'interfaces', 'cli', 'main.ts'), 'mcp'],
     cwd,
     stderr: 'pipe',
   });
@@ -68,6 +78,12 @@ it('exposes session and task workflows through MCP', async () => {
     expect(tools.tools.map((tool) => tool.name)).toContain('threadport_complete_task');
     const created = await client.callTool({ name: 'threadport_new_session', arguments: { title: 'MCP workflow' } });
     expect(JSON.stringify(created.content)).toContain('MCP workflow');
+    const resources = await client.listResources();
+    expect(resources.resources.map((resource) => resource.uri)).toContain('threadport://context');
+    const context = await client.readResource({ uri: 'threadport://context' });
+    expect(JSON.stringify(context.contents)).toContain('MCP workflow');
+    const prompts = await client.listPrompts();
+    expect(prompts.prompts.map((prompt) => prompt.name)).toContain('continue-task');
     const task = await client.callTool({ name: 'threadport_add_task', arguments: { title: 'Verify MCP' } });
     const taskText = task.content.find((item) => item.type === 'text');
     if (!taskText || taskText.type !== 'text') throw new Error('Task response missing');

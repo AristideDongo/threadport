@@ -52,16 +52,24 @@ threadport continue codex
 
 `continue` resumes a native provider session if its ID was captured during a structured run. `threadport resume <id>` instead activates a **ThreadPort session** and prints its context without launching an agent.
 
+### Optional automatic handoffs
+
+After `threadport init`, run `threadport hook install claude` or `threadport hook install codex` in your project. These project-local hooks provide the active context when an agent starts, record allowed file paths after edits, and write a summary when its session ends. They do not copy full conversations, tool arguments, or tool output. Codex asks you to review and trust new hooks with `/hooks` before running them.
+
+Use `threadport doctor` to see installed agent versions. After upgrading an agent CLI, maintainers can run `npm run test:agents:live -- codex` or `npm run test:agents:live -- claude` from a source checkout with a configured account. This optional smoke test makes one small live request and checks the structured event format.
+
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
 | `init` | Initialize `.threadport/threadport.sqlite` in the current directory. |
 | `new "objective"`, `sessions`, `open <id>`, `resume <id>` | Create, list, and reactivate sessions. |
+| `rename <id> "title"`, `finish <id>`, `delete <id>` | Rename, finish, or permanently delete a session. |
 | `status`, `timeline`, `snapshot` | Show the current state, events, and Git metadata. |
 | `decision "title" [-r "reason"]`, `decisions` | Record and review decisions. |
 | `task add "title"`, `task done <id>`, `task list` | Track tasks. |
 | `note "text"`, `error "title" [-d "details"]` | Record information or an issue. |
+| `record edit <id> "title" [-d "details"]`, `record delete <id>` | Correct or remove a work record. |
 | `constraint "text"`, `file <path>`, `files`, `artifact <path>` | Keep constraints, relevant files, and artifacts. |
 | `test-result "name" --status passed [-d "details"]` | Record a test result; use `failed` for a failure. |
 | `check <executable> [arguments...]` | Run a command without a shell, show its output, and save the result. |
@@ -76,6 +84,8 @@ threadport continue codex
 | `agents`, `doctor` | List configured agents and check the local environment. |
 | `config show`, `config set-default-mode <mode>` | View configuration or change the default context mode. |
 | `tui`, `serve`, `mcp` | Open the terminal menu, local HTTP API, or MCP server. |
+| `hook install claude`, `hook install codex` | Add optional local agent lifecycle hooks. |
+| `privacy scrub`, `mcp setup` | Clean stored data or show MCP client setup commands. |
 
 Built-in agents are `claude` and `codex`. `run` and `switch` use the configured context mode (`standard` by default). `switch` records a handoff event when the previous run used a different agent. If a process crashes, an unfinished run is marked `interrupted` on the next access unless its owner process is still running.
 
@@ -90,6 +100,8 @@ threadport import session.json
 
 Version 1 archives include the session, runs, events, decisions, records, and Git snapshots. Import assigns new IDs and marks any previously open run as interrupted. Worktrees and local paths are not transferred. The JSON file may contain sensitive project information; handle it as private data.
 
+Exports and imports apply current path exclusions and secret redaction. For data recorded before a privacy rule was added, run `threadport privacy scrub` to clean the local database and rebuild its search index. The command cannot recall archives already shared elsewhere.
+
 ### Context
 
 | Mode | Maximum budget | Selection |
@@ -100,6 +112,8 @@ Version 1 archives include the session, runs, events, decisions, records, and Gi
 | `full` | 10,000 tokens | The same selection with a larger budget. |
 
 Token counts use `cl100k_base` as a **reference measure**; they are not guaranteed to match every model's tokenizer. Sections are selected by priority. `--explain` shows which sections did not fit. Summaries reduce the history sent to an agent; the original events remain in SQLite.
+
+Open tasks and current errors are considered before older notes. Large sections are included item by item or truncated to fit. ThreadPort warns when a summary was recorded against a different Git state or when newer work has been recorded since that summary.
 
 `threadport config set-default-mode deep` selects the mode used by `run`, `switch`, the terminal menu, the API, and MCP. Project configuration lives in `.threadport/config.json`, where you can also add exclusions:
 
@@ -128,9 +142,9 @@ threadport compare <claude-fork-id> <codex-fork-id> --diff
 
 ## Local interfaces
 
-- `threadport tui`: keyboard menu for sessions, context, timeline, tasks, and runs; you can open a session, search, write a summary, and manage notes and tasks.
-- `threadport serve --port 0`: HTTP API bound to `127.0.0.1`. The command prints its URL and a temporary Bearer token. Read endpoints: `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/runs`, `/v1/search?q=term`. JSON write endpoints: `POST /v1/sessions`, `/v1/sessions/open`, `/v1/tasks/complete`, `/v1/summary`, `/v1/notes`, `/v1/tasks`, `/v1/decisions`, and `/v1/memory`. Creation requests use `title`; opening a session and completing a task use `id`.
-- `threadport mcp`: MCP server over `stdio`. Tools create and open sessions; read context, events, decisions, records, and runs; search; add notes, tasks, and decisions; complete tasks; and write summaries. Start the MCP client with the project root as its working directory.
+- `threadport tui`: keyboard menu for sessions, context, timeline, tasks, and runs; you can also finish or rename a session and edit or remove records.
+- `threadport serve --port 0`: HTTP API bound to `127.0.0.1`. The command prints its URL and a temporary Bearer token. Read endpoints: `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/runs`, `/v1/search?q=term`. JSON write endpoints also support finishing, renaming, and deleting sessions and updating or deleting records.
+- `threadport mcp`: MCP server over `stdio`. It exposes an active-context resource, a continuation prompt, and tools for session and record workflows. Run `threadport mcp setup` for client registration commands. Start the MCP client with the project root as its working directory.
 
 ### Local agent adapter
 
@@ -160,7 +174,7 @@ private/**
 *.pem
 ```
 
-ThreadPort redacts several common secret formats before storing notes or sending a context pack, but detection is heuristic. Review `threadport context --explain` before a sensitive handoff. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
+ThreadPort filters excluded file references from new snapshots, hooks, and session archives. It redacts several common secret formats before storing notes and events or sending a context pack; detection is heuristic. Review `threadport context --explain` and an export file before a sensitive handoff. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
 
 ## Contributing
 

@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { assertTitle, type AgentRun, type ContextMode, type RecordKind, type RecordStatus, type Session, type Snapshot, type WorkRecord } from '../domain/model.js';
-import { buildContextPack, redact } from './context.js';
+import { buildContextPack, excluded, gitFingerprint, redact } from './context.js';
 import type { AgentAdapter, AgentRunner, CommandExecutor, GitReader, SessionStore } from './ports.js';
 
 export class ThreadPort {
-  constructor(private readonly store: SessionStore, private readonly git: GitReader, private readonly cwd: string) {}
+  constructor(private readonly store: SessionStore, private readonly git: GitReader, private readonly cwd: string, private readonly patterns: readonly string[] = []) {}
 
   recover(): number { return this.store.recoverRuns(new Date().toISOString()); }
   sessions(): Session[] { return this.store.listSessions(); }
@@ -16,7 +16,7 @@ export class ThreadPort {
   }
   newSession(title: string): Session {
     const now = new Date().toISOString();
-    const session: Session = { id: randomUUID().slice(0, 8), title: assertTitle(title), status: 'active', createdAt: now, updatedAt: now };
+    const session: Session = { id: randomUUID().slice(0, 8), title: redact(assertTitle(title)), status: 'active', createdAt: now, updatedAt: now };
     this.store.transaction(() => {
       const previous = this.active();
       if (previous) this.store.updateSession({ ...previous, status: 'paused', updatedAt: now });
@@ -24,6 +24,26 @@ export class ThreadPort {
       this.event(session.id, 'SessionCreated', session.title);
     });
     return session;
+  }
+  rename(id: string, title: string): Session {
+    const updated = { ...this.session(id), title: redact(assertTitle(title)), updatedAt: new Date().toISOString() };
+    this.store.updateSession(updated);
+    this.event(id, 'SessionRenamed', id);
+    return updated;
+  }
+  finish(id: string): Session {
+    const session = this.session(id);
+    if (this.store.listRuns(id).some((run) => run.status === 'running')) throw new Error('Stop active agent runs before finishing this session.');
+    const updated: Session = { ...session, status: 'done', updatedAt: new Date().toISOString() };
+    this.store.updateSession(updated);
+    this.event(id, 'SessionFinished', id);
+    return updated;
+  }
+  deleteSession(id: string): void {
+    this.session(id);
+    if (this.store.listRuns(id).some((run) => run.status === 'running')) throw new Error('Stop active agent runs before deleting this session.');
+    if (this.store.listForks(id).length) throw new Error('Remove session forks before deleting this session.');
+    this.store.deleteSession(id);
   }
   open(id: string): Session {
     return this.store.transaction(() => {
@@ -44,11 +64,28 @@ export class ThreadPort {
   forks(id: string) { return this.store.listForks(id); }
   addRecord(kind: RecordKind, title: string, body = '', status: RecordStatus = 'info', runId: string | null = null): WorkRecord {
     const session = this.requireActive();
+    if ((kind === 'file' || kind === 'artifact') && excluded(title, this.patterns)) throw new Error('This path is excluded by the project privacy policy.');
     const record: WorkRecord = { id: randomUUID().slice(0, 8), sessionId: session.id, runId, kind, title: redact(assertTitle(title)), body: redact(body.trim().slice(0, 20000)), status, createdAt: new Date().toISOString(), forkId: this.forkId(session.id) };
     this.store.addRecord(record);
-    this.event(session.id, `${kind[0]?.toUpperCase() ?? ''}${kind.slice(1)}Recorded`, record.title);
+    this.event(session.id, `${kind[0]?.toUpperCase() ?? ''}${kind.slice(1)}Recorded`, record.id);
     return record;
   }
+  updateRecord(id: string, title: string, body?: string): WorkRecord {
+    const item = this.store.getRecord(id);
+    if (!item || item.sessionId !== this.requireActive().id) throw new Error(`Record not found: ${id}`);
+    if ((item.kind === 'file' || item.kind === 'artifact') && excluded(title, this.patterns)) throw new Error('This path is excluded by the project privacy policy.');
+    const updated = { ...item, title: redact(assertTitle(title)), body: body === undefined ? item.body : redact(body.trim().slice(0, 20_000)) };
+    this.store.updateRecord(updated);
+    this.event(item.sessionId, 'RecordUpdated', id);
+    return updated;
+  }
+  deleteRecord(id: string): void {
+    const item = this.store.getRecord(id);
+    if (!item || item.sessionId !== this.requireActive().id) throw new Error(`Record not found: ${id}`);
+    this.store.deleteRecord(id);
+    this.event(item.sessionId, 'RecordDeleted', id);
+  }
+  scrub(): { updated: number; removed: number } { return this.store.scrub(this.patterns); }
   addRunRecord(kind: RecordKind, title: string, body = '', status: RecordStatus = 'info'): WorkRecord {
     const session = this.requireActive();
     const running = this.store.listRuns(session.id).findLast((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id));
@@ -64,7 +101,7 @@ export class ThreadPort {
     if (!task || task.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Task not found: ${id}`);
     const done: WorkRecord = { ...task, status: 'done' };
     this.store.updateRecord(done);
-    this.event(task.sessionId, 'TaskCompleted', task.title);
+    this.event(task.sessionId, 'TaskCompleted', task.id);
     return done;
   }
   summarize(): WorkRecord {
@@ -87,6 +124,7 @@ export class ThreadPort {
       `Decisions: ${decisions.map((item) => item.title).join('; ') || 'none recorded'}`,
       `Last agent: ${lastRun ? `${lastRun.agentId} (${lastRun.status})` : 'none'}`,
       `Git: ${git?.branch ?? 'unknown branch'}, ${git?.changedFiles.length ?? 0} changed files`,
+      `Git fingerprint: ${gitFingerprint(git, this.patterns) ?? 'unavailable'}`,
     ];
     return this.addRecord('summary', `Summary for ${session.title}`, lines.join('\n'));
   }
@@ -99,14 +137,15 @@ export class ThreadPort {
   }
   decide(title: string, rationale: string): void {
     const session = this.requireActive();
-    this.store.addDecision({ id: randomUUID(), sessionId: session.id, title: redact(assertTitle(title)), rationale: redact(rationale), createdAt: new Date().toISOString() });
-    this.event(session.id, 'DecisionCreated', title);
+    const decision = { id: randomUUID(), sessionId: session.id, title: redact(assertTitle(title)), rationale: redact(rationale), createdAt: new Date().toISOString() };
+    this.store.addDecision(decision);
+    this.event(session.id, 'DecisionCreated', decision.id);
   }
   snapshot(): Snapshot {
     const session = this.requireActive();
     const git = this.git.read(this.cwd);
     if (!git) throw new Error('This directory is not a Git repository.');
-    const snapshot: Snapshot = { id: randomUUID(), sessionId: session.id, createdAt: new Date().toISOString(), git: { ...git, diff: '' } };
+    const snapshot: Snapshot = { id: randomUUID(), sessionId: session.id, createdAt: new Date().toISOString(), git: { ...git, changedFiles: git.changedFiles.filter((path) => !excluded(path, this.patterns)).map(redact), diff: '' } };
     this.store.addSnapshot(snapshot);
     this.event(session.id, 'ContextSnapshotCreated', `${git.changedFiles.length} changed file(s)`);
     return snapshot;
@@ -143,6 +182,6 @@ export class ThreadPort {
   private forkId(sessionId: string): string | null { return this.store.listForks(sessionId).find((fork) => fork.path === this.cwd)?.id ?? null; }
   private requireActive(): Session { const session = this.active(); if (!session) throw new Error('No active session. Run "threadport new <objective>".'); return session; }
   private event(sessionId: string, type: string, message: string): void {
-    this.store.addEvent({ id: randomUUID(), sessionId, type, message, createdAt: new Date().toISOString() });
+    this.store.addEvent({ id: randomUUID(), sessionId, type, message: redact(message), createdAt: new Date().toISOString() });
   }
 }
