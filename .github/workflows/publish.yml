@@ -1,0 +1,51 @@
+name: Publish npm package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'AristideDongo/threadport'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check release tag and branch
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node -e 'const version = require("./package.json").version; if (process.env.RELEASE_TAG !== `v${version}`) { console.error(`Tag must be v${version}`); process.exit(1); }'
+          git fetch origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor HEAD refs/remotes/origin/main
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Use npm with trusted publishing support
+        run: npm install --global npm@^11.15.0
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Check package contents
+        run: |
+          npm pack --dry-run --ignore-scripts --json --silent > "$RUNNER_TEMP/threadport-pack.json"
+          node -e 'const fs = require("node:fs"); const files = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))[0].files.map(file => file.path); if (files.includes("THREADPORT_PROJECT_PROMPT.md") || !files.includes("dist/interfaces/cli/main.js")) process.exit(1)' "$RUNNER_TEMP/threadport-pack.json"
+      - name: Publish to npm
+        env:
+          NPM_CONFIG_PROVENANCE: 'false'
+        run: npm publish --access public

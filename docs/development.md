@@ -38,3 +38,22 @@ Les tests couvrent les flux locaux et les formats structurés simulés. Une vér
 Le mode interactif confie le terminal à l'agent et ne voit pas les conversations que cet agent ne publie pas. Le mode `--structured` normalise les événements JSON disponibles. Un résumé ne peut décrire que les données conservées ; il ne reconstitue pas un raisonnement privé absent. Les données du projet restent locales, sauf lorsqu'un agent lancé les transmet selon ses propres règles.
 
 Les manifests de plugins configurent actuellement des agents CLI. Le stockage, l'export et les hooks restent des points d'extension internes et n'acceptent pas encore de plugins externes.
+
+## Publier une version
+
+Le workflow `ci.yml` vérifie les commits de `main` et les demandes de fusion. `publish.yml` publie uniquement un tag `vX.Y.Z` pointant vers un commit de `main` dont `package.json` porte la même version. La release passe les mêmes contrôles et vérifie que l'archive npm contient le CLI, sans `THREADPORT_PROJECT_PROMPT.md`.
+
+Le package npm `threadport` doit autoriser un éditeur de confiance GitHub Actions avec le dépôt `AristideDongo/threadport`, le fichier `publish.yml` et l'action **npm publish**. La publication utilise OIDC et ne nécessite pas de secret `NPM_TOKEN`. Le dépôt GitHub est privé : npm ne génère pas de provenance pour ses releases.
+
+```bash
+npm version patch --no-git-tag-version
+npm install --package-lock-only --ignore-scripts
+npm run check && npm test && npm run build
+git add package.json package-lock.json
+git commit -m "Release $(node -p 'require("./package.json").version')"
+git push origin main
+git tag "v$(node -p 'require("./package.json").version')"
+git push origin "v$(node -p 'require("./package.json").version')"
+```
+
+Attendre que le workflow de publication se termine avant de considérer la version disponible sur npm.
