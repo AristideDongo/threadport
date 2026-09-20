@@ -9,6 +9,8 @@ import { z } from 'zod';
 
 const recordInput = z.object({ title: z.string().min(1).max(200), body: z.string().max(20_000).optional() });
 const idInput = z.object({ id: z.string().min(1).max(200) });
+const renameInput = idInput.extend({ title: z.string().min(1).max(200) });
+const updateRecordInput = renameInput.extend({ body: z.string().max(20_000).optional() });
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -49,16 +51,25 @@ export async function serveApi(app: ThreadPort, cwd: string, port: number): Prom
         })();
         return;
       }
-      if (request.method === 'POST' && ['/v1/sessions', '/v1/sessions/open', '/v1/tasks/complete'].includes(url.pathname)) {
+      if (request.method === 'POST' && ['/v1/sessions', '/v1/sessions/open', '/v1/sessions/finish', '/v1/sessions/rename', '/v1/sessions/delete', '/v1/tasks/complete', '/v1/records/update', '/v1/records/delete'].includes(url.pathname)) {
         void (async () => {
           try {
             const input = await readJson(request);
             if (url.pathname === '/v1/sessions') {
               const { title } = recordInput.parse(input);
               respond(response, 201, app.newSession(title));
+            } else if (url.pathname === '/v1/sessions/rename') {
+              const { id, title } = renameInput.parse(input);
+              respond(response, 200, app.rename(id, title));
+            } else if (url.pathname === '/v1/records/update') {
+              const { id, title, body } = updateRecordInput.parse(input);
+              respond(response, 200, app.updateRecord(id, title, body));
             } else {
               const { id } = idInput.parse(input);
-              respond(response, 200, url.pathname === '/v1/sessions/open' ? app.open(id) : app.completeTask(id));
+              if (url.pathname === '/v1/sessions/delete') { app.deleteSession(id); respond(response, 200, { ok: true }); }
+              else if (url.pathname === '/v1/records/delete') { app.deleteRecord(id); respond(response, 200, { ok: true }); }
+              else if (url.pathname === '/v1/sessions/finish') respond(response, 200, app.finish(id));
+              else respond(response, 200, url.pathname === '/v1/sessions/open' ? app.open(id) : app.completeTask(id));
             }
           } catch (error: unknown) { respond(response, error instanceof Error && error.message.includes('too large') ? 413 : 400, { error: error instanceof Error ? error.message : String(error) }); }
         })();

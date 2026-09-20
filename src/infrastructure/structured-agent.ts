@@ -42,7 +42,7 @@ export function interpretAgentEvents(agentId: string, value: unknown): CapturedA
 export function interpretAgentEvent(agentId: string, value: unknown): CapturedAgentEvent | null { return interpretAgentEvents(agentId, value)[0] ?? null; }
 export class StructuredAgentRunner implements AgentRunner {
   constructor(private readonly agentId: string, private readonly onEvent: (event: CapturedAgentEvent) => void) {}
-  available(command: string): boolean { return spawnSync('which', [command], { stdio: 'ignore' }).status === 0; }
+  available(command: string): boolean { return spawnSync(process.platform === 'win32' ? 'where' : 'which', [command], { stdio: 'ignore' }).status === 0; }
   run(command: string, args: string[], cwd: string): Promise<number> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'inherit'] });

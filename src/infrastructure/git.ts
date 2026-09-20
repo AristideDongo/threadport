@@ -23,7 +23,7 @@ export class GitCliReader implements GitReader {
       }
       let diff = '';
       try { diff = git(cwd, ['diff', '--no-ext-diff', '--', '.']) + '\n' + git(cwd, ['diff', '--cached', '--no-ext-diff', '--', '.']); }
-      catch { diff = '[Diff trop volumineux ou indisponible]'; }
+      catch { diff = '[Diff too large or unavailable]'; }
       return { branch, head, changedFiles, diff: diff.slice(0, 512_000) };
     } catch { return null; }
   }

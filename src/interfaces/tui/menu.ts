@@ -9,7 +9,7 @@ export async function openMenu(app: ThreadPort, cwd: string): Promise<void> {
     while (true) {
       const current = app.active();
       console.log(`\nThreadPort  ·  ${current ? `${current.id} — ${current.title}` : 'no active session'}`);
-      console.log('1 Sessions  2 Context  3 Timeline  4 Tasks  5 Decisions  6 Open  7 Note  8 Add task  9 Summary  A Search  B Complete task  C Runs  0 Quit');
+      console.log('1 Sessions  2 Context  3 Timeline  4 Tasks  5 Decisions  6 Open  7 Note  8 Add task  9 Summary  A Search  B Complete task  C Runs  D Finish  E Rename  F Edit record  G Delete record  0 Quit');
       const choice = (await input.question('> ')).trim();
       if (choice === '0') return;
       if (choice === '1') for (const item of app.sessions()) console.log(`${item.id} ${item.status.padEnd(6)} ${item.title}`);
@@ -30,6 +30,21 @@ export async function openMenu(app: ThreadPort, cwd: string): Promise<void> {
         console.log(`✓ ${app.completeTask(id).title}`);
       }
       else if (choice.toLowerCase() === 'c' && current) for (const run of app.runs(current.id)) console.log(`${run.id} ${run.agentId} ${run.status} ${run.exitCode ?? ''}`);
+      else if (choice.toLowerCase() === 'd' && current) console.log(`✓ Finished ${app.finish(current.id).id}`);
+      else if (choice.toLowerCase() === 'e' && current) {
+        const title = (await input.question('New session title: ')).trim();
+        console.log(`✓ ${app.rename(current.id, title).title}`);
+      }
+      else if (choice.toLowerCase() === 'f' && current) {
+        const id = (await input.question('Record ID: ')).trim();
+        const title = (await input.question('New title: ')).trim();
+        console.log(`✓ ${app.updateRecord(id, title).title}`);
+      }
+      else if (choice.toLowerCase() === 'g' && current) {
+        const id = (await input.question('Record ID: ')).trim();
+        app.deleteRecord(id);
+        console.log(`✓ Deleted ${id}`);
+      }
       else console.log('Unknown choice or no active session.');
     }
   } finally { input.close(); }

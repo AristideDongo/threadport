@@ -14,7 +14,7 @@ export function adapterById(id: string, extra: readonly AgentAdapter[] = []): Ag
 }
 
 export class TerminalAgentRunner implements AgentRunner {
-  available(command: string): boolean { return spawnSync('which', [command], { stdio: 'ignore' }).status === 0; }
+  available(command: string): boolean { return spawnSync(process.platform === 'win32' ? 'where' : 'which', [command], { stdio: 'ignore' }).status === 0; }
   run(command: string, args: string[], cwd: string): Promise<number> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, { cwd, stdio: 'inherit', env: process.env });
@@ -22,4 +22,9 @@ export class TerminalAgentRunner implements AgentRunner {
       child.once('close', (code, signal) => resolve(code ?? (signal ? 128 : 1)));
     });
   }
+}
+
+export function agentVersion(command: string): string | null {
+  const result = spawnSync(command, ['--version'], { encoding: 'utf8', timeout: 3000, windowsHide: true });
+  return result.status === 0 ? (result.stdout || result.stderr).trim().split(/\r?\n/, 1)[0]?.slice(0, 120) ?? null : null;
 }

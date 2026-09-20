@@ -16,7 +16,7 @@ Interactive launching passes the context pack through a temporary file and gives
 
 ## Context packs
 
-A pack can contain the objective, latest summary, project memory, constraints, open tasks, errors, decisions, tests, notes, relevant files, artifacts, Git state, and recent events. A diff can be included in `deep` or `full` mode. Each section identifies its source. Budgets of 500, 1,500, 4,000, and 10,000 tokens are measured with `cl100k_base`, a reference measure across providers. Sections are added by priority; the explanation lists sections that did not fit. Default exclusions, `.threadport/config.json`, and `.threadportignore` keep selected paths out of the pack. Secret detection remains heuristic.
+A pack can contain the objective, latest summary, project memory, constraints, open tasks, errors, decisions, tests, notes, relevant files, artifacts, Git state, and recent events. A diff can be included in `deep` or `full` mode. Each section identifies its source. Budgets of 500, 1,500, 4,000, and 10,000 tokens are measured with `cl100k_base`, a reference measure across providers. Priority items are included individually and truncated when needed. A Git fingerprint and newer-work check mark summaries that may be stale. Default exclusions, `.threadport/config.json`, and `.threadportignore` keep selected paths out of packs, new snapshots, hooks, and session archives. Existing history can be cleaned with `privacy scrub`. Secret detection remains heuristic.
 
 ## Git, forks, and comparison
 
@@ -24,8 +24,8 @@ Git status uses `status --porcelain=v1 -z` to handle unusual paths. Snapshots st
 
 ## Interfaces
 
-The CLI, terminal menu, local HTTP API, and MCP `stdio` server use the same application use cases. The API listens only on `127.0.0.1` and requires a temporary token. API and MCP expose sessions, runs, notes, tasks, decisions, and summaries. Plugin manifests add validated CLI agent adapters.
+The CLI, terminal menu, local HTTP API, and MCP `stdio` server use the same application use cases. The API listens only on `127.0.0.1` and requires a temporary token. API and MCP expose session and record lifecycle operations. MCP also exposes a context resource and continuation prompt. Project-local Claude and Codex hooks can inject context and record limited activity metadata without storing raw transcripts. Plugin manifests add validated CLI agent adapters.
 
 ## Current boundaries
 
-Detailed interactive capture would require deeper provider hooks or protocols. Complete mapping of Claude and Codex events requires regular live compatibility checks. Token counts are not exact for every model. API, terminal menu, and plugin types can be expanded as compatibility and interruption handling gain further coverage.
+Hooks capture selected lifecycle and file metadata; detailed interactive conversations remain inside each provider. Complete mapping of Claude and Codex events requires regular live compatibility checks. Token counts are not exact for every model. Plugin types can be expanded as compatibility and interruption handling gain further coverage.

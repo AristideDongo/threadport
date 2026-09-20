@@ -109,3 +109,46 @@ it('exports and imports a session with remapped identifiers', () => {
     expect(target.search('SQLite', 10)[0]?.sessionId).toBe(imported.id);
   } finally { source.close(); target.close(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+it('scrubs stored history, filtered paths, and exported archives', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'threadport-privacy-'));
+  const store = new SqliteStore(join(dir, 'db.sqlite'));
+  try {
+    const app = new ThreadPort(store, { read: () => ({ branch: 'main', head: 'abc', changedFiles: ['.env', 'src/a.ts'], diff: '' }) }, dir, ['.env']);
+    const session = app.newSession('Fix token=old-secret');
+    expect(session.title).not.toContain('old-secret');
+    app.decide('Use token=decision-secret', 'Rotate it');
+    expect(JSON.stringify(app.events(session.id))).not.toContain('decision-secret');
+    expect(() => app.addRecord('file', '.env')).toThrow('excluded');
+    expect(app.snapshot().git.changedFiles).toEqual(['src/a.ts']);
+    store.addEvent({ id: 'legacy-event', sessionId: session.id, type: 'Legacy', message: 'password: old-value', createdAt: '2026-01-01' });
+    store.addRecord({ id: 'legacy-file', sessionId: session.id, runId: null, kind: 'file', title: '.env', body: 'secret', status: 'info', createdAt: '2026-01-01' });
+    const archive = new SessionTransfer(store, ['.env']).export(session.id);
+    expect(JSON.stringify(archive)).not.toContain('old-value');
+    expect(JSON.stringify(archive)).not.toContain('legacy-file');
+    expect(app.scrub()).toMatchObject({ removed: 1 });
+    expect(JSON.stringify(store.listEvents(session.id))).not.toContain('old-value');
+    expect(store.search('legacy-file', 10)).toHaveLength(0);
+  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('renames, edits, finishes, and deletes a session without leaving search hits', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'threadport-lifecycle-'));
+  const store = new SqliteStore(join(dir, 'db.sqlite'));
+  try {
+    const app = new ThreadPort(store, { read: () => null }, dir);
+    const session = app.newSession('OriginalIntent');
+    expect(app.rename(session.id, 'ReplacementIntent').title).toBe('ReplacementIntent');
+    expect(app.search('OriginalIntent')).toHaveLength(0);
+    const note = app.addRecord('note', 'OutdatedMemo', 'details');
+    expect(app.updateRecord(note.id, 'CorrectedMemo').body).toBe('details');
+    expect(app.search('OutdatedMemo')).toHaveLength(0);
+    app.deleteRecord(note.id);
+    expect(app.search('CorrectedMemo')).toHaveLength(0);
+    expect(app.finish(session.id).status).toBe('done');
+    expect(app.active()).toBeNull();
+    app.deleteSession(session.id);
+    expect(app.search('ReplacementIntent')).toHaveLength(0);
+    expect(app.sessions()).toHaveLength(0);
+  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+});

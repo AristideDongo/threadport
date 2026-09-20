@@ -1,4 +1,5 @@
 import { getEncoding } from 'js-tiktoken';
+import { createHash } from 'node:crypto';
 import type { ContextMode, GitState, Session, WorkRecord } from '../domain/model.js';
 import type { SessionStore } from './ports.js';
 
@@ -29,6 +30,9 @@ export function redact(value: string): string {
 }
 function count(value: string): number { return encoding.encode(value).length; }
 function renderRecords(records: WorkRecord[]): string { return records.map((item) => `- [${item.status}] ${item.title}${item.body ? `: ${item.body}` : ''} (record:${item.id})`).join('\n'); }
+export function gitFingerprint(git: GitState | null, patterns: readonly string[] = []): string | null {
+  return git ? createHash('sha256').update(JSON.stringify([git.branch, git.head, git.changedFiles.filter((path) => !excluded(path, patterns)), safeDiff(git.diff, patterns)])).digest('hex').slice(0, 16) : null;
+}
 
 export function buildContextPack(store: SessionStore, session: Session, git: GitState | null, mode: ContextMode, patterns: readonly string[], forkId: string | null = null): ContextPack {
   const budget = budgets[mode];
@@ -37,13 +41,46 @@ export function buildContextPack(store: SessionStore, session: Session, git: Git
   const excludedPaths = git?.changedFiles.filter((file) => excluded(file, patterns)) ?? [];
   const parts: string[] = [];
   let used = 0;
+  const fit = (value: string, allowance: number): string => {
+    if (count(value) <= allowance) return value;
+    let low = 0;
+    let high = value.length;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (count(value.slice(0, middle) + '…') <= allowance) low = middle;
+      else high = middle - 1;
+    }
+    return low ? value.slice(0, low) + '…' : '';
+  };
   const add = (label: string, source: string, raw: string): void => {
     const content = redact(raw).trim();
     if (!content) return;
-    const chunk = `${parts.length ? '\n\n' : ''}## ${label} [${source}]\n${content}`;
+    const prefix = `${parts.length ? '\n\n' : ''}## ${label} [${source}]\n`;
+    const fitted = fit(content, budget - used - count(prefix));
+    if (!fitted) { omitted.push(label); return; }
+    const chunk = prefix + fitted;
     const tokens = count(chunk);
-    if (used + tokens > budget) { omitted.push(label); return; }
+    if (fitted !== content) omitted.push(`${label} (truncated)`);
     parts.push(chunk); used += tokens; included.push({ label, source, tokens });
+  };
+  const addItems = (label: string, source: string, items: string[]): void => {
+    if (!items.length) return;
+    const prefix = `${parts.length ? '\n\n' : ''}## ${label} [${source}]\n`;
+    if (used + count(prefix) >= budget) { omitted.push(label); return; }
+    let content = '';
+    let skipped = 0;
+    for (const item of items) {
+      const line = `${content ? '\n' : ''}${redact(item)}`;
+      const fitted = fit(line, budget - used - count(prefix + content));
+      if (!fitted) { skipped++; continue; }
+      content += fitted;
+      if (fitted !== line) skipped++;
+    }
+    if (!content) { omitted.push(label); return; }
+    const chunk = prefix + content;
+    const tokens = count(chunk);
+    parts.push(chunk); used += tokens; included.push({ label, source, tokens });
+    if (skipped) omitted.push(`${label} (${skipped} item(s) truncated or omitted)`);
   };
   add('Session', `session:${session.id}`, `Objective: ${session.title}\nStatus: ${session.status}`);
   const records = store.listRecords(session.id).filter((item) => (item.forkId ?? null) === forkId);
@@ -56,27 +93,38 @@ export function buildContextPack(store: SessionStore, session: Session, git: Git
   const errors = records.filter((item) => item.kind === 'error' && item.status !== 'done').slice(-5);
   const tests = records.filter((item) => item.kind === 'test').slice(-5);
   const notes = records.filter((item) => item.kind === 'note').slice(-5);
-  add('Latest summary', 'work-records', renderRecords(summaries));
-  add('Project memory', 'work-records', renderRecords(memory));
-  add('Constraints', 'work-records', renderRecords(constraints));
-  add('Open tasks', 'work-records', renderRecords(openTasks));
-  add('Current errors', 'work-records', renderRecords(errors));
-  const decisions = store.listDecisions(session.id);
-  add('Decisions', 'decisions', decisions.map((item) => `- ${item.title}${item.rationale ? `: ${item.rationale}` : ''} (decision:${item.id})`).join('\n'));
-  add('Tests', 'work-records', renderRecords(tests));
-  add('Recent notes', 'work-records', renderRecords(notes));
-  add('Relevant files', 'work-records', renderRecords(relevantFiles));
-  add('Artifacts', 'work-records', renderRecords(artifacts));
-  add('Next step', 'threadport', 'Continue from the current project state. Inspect files before changing them.');
+  addItems('Open tasks', 'work-records', openTasks.map((item) => renderRecords([item])));
+  addItems('Current errors', 'work-records', errors.map((item) => renderRecords([item])));
   if (git) {
     const files = git.changedFiles.filter((file) => !excluded(file, patterns));
     add('Git state', 'git:live', `Branch: ${git.branch ?? 'unknown'}\nHEAD: ${git.head ?? 'unknown'}\nChanged files:\n${files.map((file) => `- ${file}`).join('\n')}`);
   }
+  const latestSummary = summaries[0];
+  if (latestSummary) {
+    const match = /\nGit fingerprint: ([a-f0-9]{16}|unavailable)$/.exec(latestSummary.body);
+    const current = gitFingerprint(git, patterns);
+    const summaryIndex = records.findIndex((item) => item.id === latestSummary.id);
+    const newerWork = records.slice(summaryIndex + 1).some((item) => item.kind !== 'summary') || decisionsAfterSummary(store, session.id, latestSummary.createdAt);
+    const state = match?.[1] && match[1] === (current ?? 'unavailable') && !newerWork ? '' : '⚠ Summary may be stale: Git state or recorded work changed.\n';
+    add('Latest summary', 'work-records', `${state}${renderRecords([{ ...latestSummary, body: latestSummary.body.replace(/\nGit fingerprint: (?:[a-f0-9]{16}|unavailable)$/, '') }])}`);
+  }
+  addItems('Project memory', 'work-records', memory.map((item) => renderRecords([item])));
+  addItems('Constraints', 'work-records', constraints.map((item) => renderRecords([item])));
+  const decisions = store.listDecisions(session.id);
+  addItems('Decisions', 'decisions', decisions.map((item) => `- ${item.title}${item.rationale ? `: ${item.rationale}` : ''} (decision:${item.id})`));
+  addItems('Tests', 'work-records', tests.map((item) => renderRecords([item])));
+  addItems('Recent notes', 'work-records', notes.map((item) => renderRecords([item])));
+  addItems('Relevant files', 'work-records', relevantFiles.map((item) => renderRecords([item])));
+  addItems('Artifacts', 'work-records', artifacts.map((item) => renderRecords([item])));
+  add('Next step', 'threadport', 'Continue from the current project state. Inspect files before changing them.');
   const eventLimit = mode === 'minimal' ? 3 : mode === 'standard' ? 10 : 30;
   const events = forkId ? [] : store.listEvents(session.id).slice(-eventLimit);
-  add('Recent timeline', 'events', events.map((item) => `- ${item.createdAt} ${item.type}: ${item.message}`).join('\n'));
+  addItems('Recent timeline', 'events', events.map((item) => `- ${item.createdAt} ${item.type}: ${item.message}`));
   if (git && (mode === 'deep' || mode === 'full')) add('Git diff', 'git:live', safeDiff(git.diff, patterns));
   return { text: parts.join(''), tokens: used, budget, included, omitted, excludedPaths };
+}
+function decisionsAfterSummary(store: SessionStore, sessionId: string, createdAt: string): boolean {
+  return store.listDecisions(sessionId).some((decision) => decision.createdAt > createdAt);
 }
 export function buildContext(store: SessionStore, session: Session, git: GitState | null, mode: ContextMode, patterns: readonly string[]): string {
   return buildContextPack(store, session, git, mode, patterns).text;
