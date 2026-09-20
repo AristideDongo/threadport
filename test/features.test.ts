@@ -11,7 +11,7 @@ import { GitCliReader } from '../src/infrastructure/git.js';
 import { GitWorktrees } from '../src/infrastructure/git-worktrees.js';
 import { SqliteStore } from '../src/infrastructure/sqlite-store.js';
 import { interpretAgentEvent, interpretAgentEvents } from '../src/infrastructure/structured-agent.js';
-import { readConfig, setDefaultMode } from '../src/infrastructure/config.js';
+import { readConfig, setDefaultMode, verificationCommands } from '../src/infrastructure/config.js';
 import { loadExcludes } from '../src/infrastructure/privacy.js';
 
 it('migrates a v1 database and searches structured records', () => {
@@ -73,10 +73,13 @@ it('applies project configuration to privacy exclusions', () => {
   const store = new SqliteStore(join(dir, '.threadport', 'db.sqlite'));
   try {
     expect(readConfig(dir).context.defaultMode).toBe('standard');
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ scripts: { check: 'tsc', test: 'vitest' } }));
+    expect(verificationCommands(dir).map((item) => item.args[1])).toEqual(['check', 'test']);
     setDefaultMode(dir, 'deep');
-    writeFileSync(join(dir, '.threadport', 'config.json'), JSON.stringify({ context: { defaultMode: 'deep' }, privacy: { exclude: ['private/**'] } }));
+    writeFileSync(join(dir, '.threadport', 'config.json'), JSON.stringify({ context: { defaultMode: 'deep' }, privacy: { exclude: ['private/**'] }, verification: { commands: [{ command: 'cargo', args: ['test'] }] } }));
     expect(readConfig(dir).context.defaultMode).toBe('deep');
     expect(loadExcludes(dir)).toContain('private/**');
+    expect(verificationCommands(dir)).toEqual([{ command: 'cargo', args: ['test'] }]);
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -102,11 +105,14 @@ it('exports and imports a session with remapped identifiers', () => {
     app.decide('Use SQLite', 'Offline storage');
     app.addRecord('task', 'Write tests', '', 'open');
     const archive = new SessionTransfer(source).export(original.id);
+    expect(archive.formatVersion).toBe(2);
     const imported = new SessionTransfer(target).import(JSON.parse(JSON.stringify(archive)) as unknown);
     expect(imported.id).not.toBe(original.id);
     expect(target.listDecisions(imported.id)[0]?.title).toBe('Use SQLite');
     expect(target.listRecords(imported.id)[0]?.title).toBe('Write tests');
     expect(target.search('SQLite', 10)[0]?.sessionId).toBe(imported.id);
+    const legacy: unknown = { ...archive, formatVersion: 1 };
+    expect(new SessionTransfer(target).import(legacy).id).not.toBe(imported.id);
   } finally { source.close(); target.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 

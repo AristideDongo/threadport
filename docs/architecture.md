@@ -8,7 +8,9 @@
 
 Each project keeps a SQLite database at `.threadport/threadport.sqlite`. `PRAGMA user_version` manages migrations through schema version 5. Tables store sessions, runs, events, decisions, snapshots, work records, forks, and an FTS5 search index. SQLite uses WAL mode and a busy timeout for concurrent writes. Runs store the owner process ID, optional fork ID, and provider session ID. After a crash, only runs whose owner process is no longer alive are marked interrupted. Original events remain available after a summary is created.
 
-Version 1 JSON exports contain a session's history without local fork paths. Import validates the archive, remaps IDs, and inserts the data in a transaction; it does not change the source database.
+Version 2 JSON exports contain a session's history without local fork paths. Import accepts version 1 or 2, validates the archive, remaps IDs, and inserts the data in a transaction; it does not change the source database.
+
+Verification reports, saved handoffs, and GitHub work links are typed work records. They use the existing SQLite schema without a new migration and are included in version 2 archives. Verification reports store command exit codes, durations, record IDs, and a fingerprint of the Git state before the checks. A result is trusted only if all commands pass and Git state is unchanged. Handoff drafts include that fingerprint; saving a draft requires it to match the current state. A later change marks the saved handoff stale.
 
 ## Provider event capture
 
