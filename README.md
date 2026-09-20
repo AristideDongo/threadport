@@ -4,7 +4,7 @@
 
 ThreadPort conserve le contexte d'une tâche de développement dans le projet et le transmet à Claude Code, Codex ou un agent configuré localement. Chaque session possède une timeline, des décisions, des tâches, des notes, des résultats de tests, des exécutions d'agents et des captures Git. Les données restent dans une base SQLite locale.
 
-> **Version 0.3.0.** Le transfert conserve les informations enregistrées dans la session et les événements exposés par les agents en mode structuré.
+Le transfert conserve les informations enregistrées dans la session et les événements exposés par les agents en mode structuré.
 
 ## Installation
 
