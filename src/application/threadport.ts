@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { assertTitle, type AgentRun, type ContextMode, type RecordKind, type RecordStatus, type Session, type Snapshot, type WorkRecord } from '../domain/model.js';
 import { buildContextPack, excluded, gitFingerprint, redact } from './context.js';
+import { githubWorkLink, parseHandoff, parseVerification, renderHandoff, type PrivacyAudit, type SavedHandoff, type VerificationCommand, type VerificationReport } from './continuity.js';
 import type { AgentAdapter, AgentRunner, CommandExecutor, GitReader, SessionStore } from './ports.js';
 
 export class ThreadPort {
@@ -86,6 +87,83 @@ export class ThreadPort {
     this.event(item.sessionId, 'RecordDeleted', id);
   }
   scrub(): { updated: number; removed: number } { return this.store.scrub(this.patterns); }
+  privacyAudit(mode: ContextMode = 'standard'): PrivacyAudit {
+    const session = this.requireActive();
+    const values = [session.title, ...this.events(session.id).map((item) => item.message),
+      ...this.decisions(session.id).flatMap((item) => [item.title, item.rationale]),
+      ...this.records(session.id).flatMap((item) => [item.title, item.body])];
+    const git = this.git.read(this.cwd);
+    const excludedReferences = this.records(session.id).filter((item) => (item.kind === 'file' || item.kind === 'artifact') && excluded(item.title, this.patterns)).length +
+      this.store.listSnapshots(session.id).flatMap((item) => item.git.changedFiles).filter((path) => excluded(path, this.patterns)).length +
+      (git?.changedFiles.filter((path) => excluded(path, this.patterns)).length ?? 0);
+    const redactedFields = values.filter((value) => redact(value) !== value).length;
+    return { redactedFields, excludedReferences, contextTokens: this.contextPack(mode, this.patterns).tokens,
+      warnings: ['Secret detection is heuristic. Review the context and export before sharing.', ...(git ? [] : ['Git state is unavailable; verification cannot be anchored to a commit.'])] };
+  }
+  linkWork(kind: 'issue' | 'pr', url: string): WorkRecord {
+    const link = githubWorkLink(kind, url);
+    const existing = this.records(this.requireActive().id).find((item) => item.kind === 'link' && item.body === link.url);
+    return existing ?? this.addRecord('link', link.title, link.url);
+  }
+  latestVerification(): VerificationReport | null {
+    const session = this.requireActive();
+    const record = this.records(session.id).filter((item) => item.kind === 'verification' && (item.forkId ?? null) === this.forkId(session.id)).at(-1);
+    return record ? parseVerification(record.body) : null;
+  }
+  verificationStatus(): { report: VerificationReport; current: boolean } | null {
+    const report = this.latestVerification();
+    if (!report) return null;
+    return { report, current: report.passed && report.fingerprint !== null && report.fingerprint === gitFingerprint(this.git.read(this.cwd), this.patterns) };
+  }
+  async verify(commands: readonly VerificationCommand[], executor: CommandExecutor): Promise<VerificationReport> {
+    this.requireActive();
+    if (!commands.length || commands.length > 20) throw new Error('Configure between 1 and 20 verification commands.');
+    const before = this.git.read(this.cwd);
+    const fingerprint = gitFingerprint(before, this.patterns);
+    const startedAt = new Date().toISOString();
+    const results: VerificationReport['results'] = [];
+    for (const entry of commands) {
+      if (!entry.command.trim() || !Array.isArray(entry.args) || !entry.args.every((arg) => typeof arg === 'string')) throw new Error('Invalid verification command.');
+      const started = Date.now();
+      let outcome: { code: number; output: string };
+      try { outcome = await executor.execute(entry.command, entry.args, this.cwd); }
+      catch (error: unknown) { outcome = { code: 127, output: error instanceof Error ? error.message : String(error) }; }
+      const title = [entry.command, ...entry.args].join(' ');
+      const record = this.addRecord('test', title, outcome.output, outcome.code === 0 ? 'done' : 'failed');
+      results.push({ command: entry.command, args: entry.args, exitCode: outcome.code, durationMs: Date.now() - started, recordId: record.id });
+    }
+    const after = this.git.read(this.cwd);
+    const unchanged = fingerprint !== null && fingerprint === gitFingerprint(after, this.patterns);
+    const report: VerificationReport = { version: 1, startedAt, endedAt: new Date().toISOString(), fingerprint, head: before?.head ?? null,
+      unchanged, passed: unchanged && results.every((item) => item.exitCode === 0), results };
+    this.addRecord('verification', 'Verification report', JSON.stringify(report), report.passed ? 'done' : 'failed');
+    return report;
+  }
+  handoffDraft(): string {
+    const session = this.requireActive();
+    const git = this.git.read(this.cwd);
+    return redact(renderHandoff({ session, git: git ? { ...git, changedFiles: git.changedFiles.filter((path) => !excluded(path, this.patterns)) } : null,
+      fingerprint: gitFingerprint(git, this.patterns), records: this.records(session.id).filter((item) => (item.forkId ?? null) === this.forkId(session.id)),
+      decisions: this.decisions(session.id), runs: this.runs(session.id), verification: this.latestVerification() }));
+  }
+  saveHandoff(content: string): WorkRecord {
+    const trimmed = content.trim();
+    if (!trimmed || trimmed.length > 18_000) throw new Error('Handoff must contain 1 to 18,000 characters.');
+    const fingerprint = gitFingerprint(this.git.read(this.cwd), this.patterns);
+    const draftFingerprint = /^Git fingerprint: ([a-f0-9]{16}|unavailable)$/m.exec(trimmed)?.[1];
+    if (draftFingerprint !== (fingerprint ?? 'unavailable')) throw new Error('Handoff draft is stale or missing its Git fingerprint. Generate a fresh draft after reviewing current changes.');
+    const handoff: SavedHandoff = { version: 1, fingerprint, content: redact(trimmed) };
+    return this.addRecord('handoff', 'Saved handoff', JSON.stringify(handoff));
+  }
+  latestHandoff(): { content: string; stale: boolean } | null {
+    const session = this.requireActive();
+    const records = this.records(session.id).filter((item) => (item.forkId ?? null) === this.forkId(session.id));
+    const index = records.findLastIndex((item) => item.kind === 'handoff');
+    if (index < 0) return null;
+    const handoff = parseHandoff(records[index]?.body ?? '');
+    if (!handoff) return null;
+    return { content: handoff.content, stale: handoff.fingerprint !== gitFingerprint(this.git.read(this.cwd), this.patterns) || records.slice(index + 1).some((item) => item.kind !== 'summary') };
+  }
   addRunRecord(kind: RecordKind, title: string, body = '', status: RecordStatus = 'info'): WorkRecord {
     const session = this.requireActive();
     const running = this.store.listRuns(session.id).findLast((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id));
@@ -171,7 +249,7 @@ export class ThreadPort {
     let code: number;
     try { code = await runner.run(adapter.command, adapter.args(contextFile), this.cwd); }
     catch (error: unknown) { code = 1; this.event(session.id, 'ErrorDetected', error instanceof Error ? error.message : String(error)); }
-    const finished: AgentRun = { ...run, status: code === 0 ? 'completed' : 'failed', endedAt: new Date().toISOString(), exitCode: code };
+    const finished: AgentRun = { ...run, status: code === 0 ? 'completed' : code === 130 || code === 143 ? 'cancelled' : 'failed', endedAt: new Date().toISOString(), exitCode: code };
     this.store.updateRun(finished);
     this.snapshotIfGit();
     this.event(session.id, 'AgentRunStopped', `${adapter.label} (exit code ${code})`);

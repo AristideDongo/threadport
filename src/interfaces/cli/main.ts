@@ -8,7 +8,7 @@ import { redact, safeDiff } from '../../application/context.js';
 import { ThreadPort } from '../../application/threadport.js';
 import { SessionTransfer } from '../../application/transfer.js';
 import { loadExcludes } from '../../infrastructure/privacy.js';
-import { readConfig, setDefaultMode } from '../../infrastructure/config.js';
+import { readConfig, setDefaultMode, verificationCommands } from '../../infrastructure/config.js';
 import { SqliteStore } from '../../infrastructure/sqlite-store.js';
 import { GitCliReader } from '../../infrastructure/git.js';
 import { GitWorktrees } from '../../infrastructure/git-worktrees.js';
@@ -76,7 +76,8 @@ cli.command('init').description('Initialize ThreadPort in the current directory'
 cli.command('new <objective>').description('Create and activate a session').action((objective: string) => withProject((app) => {
   const session = app.newSession(objective);
   console.log(`✓ Session created: ${session.id} — ${session.title}`);
-  console.log('Next step: threadport run claude');
+  const available = knownAgents().filter((agent) => runner.available(agent.command));
+  console.log(available[0] ? `Next step: threadport run ${available[0].id}` : 'No agent CLI found. Run "threadport doctor" or use "threadport context".');
 }));
 cli.command('sessions').description('List sessions').action(() => withProject((app) => {
   const sessions = app.sessions();
@@ -194,6 +195,34 @@ cli.command('summary').description('Summarize the active session').action(() => 
   const item = app.summarize();
   console.log(`${item.title}\n${item.body}`);
 }));
+const handoff = cli.command('handoff').description('Draft and review a cross-agent handoff');
+handoff.command('draft').description('Show a sourced handoff draft').option('-o, --out <file>', 'Write a new Markdown file for review').action((options: { out?: string }) => withProject((app) => {
+  const draft = app.handoffDraft();
+  if (options.out) { writeFileSync(options.out, draft + '\n', { mode: 0o600, flag: 'wx' }); console.log(`✓ Handoff draft: ${resolve(options.out)}`); }
+  else console.log(draft);
+}));
+handoff.command('save <file>').description('Save a Markdown handoff from a file').action((file: string) => withProject((app) => {
+  if (statSync(file).size > 18_000) throw new Error('Handoff file is too large (18 KB maximum).');
+  const item = app.saveHandoff(readFileSync(file, 'utf8'));
+  console.log(`✓ Handoff saved: ${item.id}`);
+}));
+handoff.command('show').description('Show the latest saved handoff').action(() => withProject((app) => {
+  const saved = app.latestHandoff();
+  if (!saved) throw new Error('No saved handoff. Run "threadport handoff draft" first.');
+  if (saved.stale) console.error('⚠ Handoff may be stale; review the current files.');
+  console.log(saved.content);
+}));
+const link = cli.command('link').description('Associate the active session with GitHub work');
+link.command('issue <url>').description('Link a GitHub issue').action((url: string) => withProject((app) => console.log(`✓ Linked ${app.linkWork('issue', url).title}`)));
+link.command('pr <url>').description('Link a GitHub pull request').action((url: string) => withProject((app) => console.log(`✓ Linked ${app.linkWork('pr', url).title}`)));
+cli.command('verify [executable] [args...]').description('Run configured checks, or one supplied command, and bind results to Git state').action(async (executable: string | undefined, args: string[], _options: unknown) => withProjectAsync(async (app) => {
+  const commands = executable ? [{ command: executable, args }] : verificationCommands(cwd);
+  if (!commands.length) throw new Error('No verification commands. Add verification.commands to .threadport/config.json or pass an executable.');
+  const report = await app.verify(commands, new LocalCommandExecutor());
+  for (const result of report.results) console.log(`${result.exitCode === 0 ? '✓' : '✗'} ${[result.command, ...result.args].join(' ')} (exit ${result.exitCode}, ${result.durationMs} ms)`);
+  console.log(report.passed ? '✓ Verification passed on the current Git state.' : report.unchanged ? '✗ Verification failed.' : '⚠ Verification cannot be tied to the current Git state.');
+  if (!report.passed) process.exitCode = 1;
+}));
 cli.command('search <query>').description('Search sessions, decisions, and records').action((query: string) => withProject((app) => {
   const hits = app.search(query);
   if (!hits.length) { console.log('No results.'); return; }
@@ -280,7 +309,15 @@ config.command('set-default-mode <mode>').description('Set the default context m
   const setting = setDefaultMode(cwd, assertMode(value));
   console.log(`✓ Default mode: ${setting.context.defaultMode}`);
 }));
-cli.command('privacy').description('Manage stored private data').command('scrub').description('Redact existing records and remove excluded file references').action(() => withProject((app) => {
+const privacy = cli.command('privacy').description('Manage stored private data');
+privacy.command('audit').description('Preview redaction and excluded references before sharing').option('--show-context', 'Print the redacted context pack').action((options: { showContext?: boolean }) => withProject((app) => {
+  const mode = readConfig(cwd).context.defaultMode;
+  const report = app.privacyAudit(mode);
+  console.log(`Redaction candidates: ${report.redactedFields}\nExcluded references: ${report.excludedReferences}\nContext tokens: ${report.contextTokens}`);
+  for (const warning of report.warnings) console.log(`⚠ ${warning}`);
+  if (options.showContext) console.log(`\n${app.context(mode, loadExcludes(cwd))}`);
+}));
+privacy.command('scrub').description('Redact existing records and remove excluded file references').action(() => withProject((app) => {
   const result = app.scrub();
   console.log(`✓ Privacy scrub complete: ${result.updated} updated, ${result.removed} excluded records removed.`);
 }));
@@ -322,7 +359,12 @@ cli.command('doctor').description('Check the local environment').action(() => {
   console.log(`Project  ${existsSync(dbPath) ? 'initialized ✓' : 'not initialized'}`);
   console.log(`Git      ${git.read(cwd) ? 'repository found ✓' : 'no repository'}`);
   console.log(`Config   ${readConfig(cwd).context.defaultMode}`);
-  for (const agent of knownAgents()) console.log(`${agent.label.padEnd(11)} ${runner.available(agent.command) ? `${agentVersion(agent.command) ?? 'available'} ✓` : 'missing'}`);
+  for (const agent of knownAgents()) {
+    const guide = agent.id === 'claude' ? ' · https://code.claude.com/docs/en/setup' : agent.id === 'codex' ? ' · https://developers.openai.com/codex/cli/' : '';
+    console.log(`${agent.label.padEnd(11)} ${runner.available(agent.command) ? `${agentVersion(agent.command) ?? 'available'} ✓` : `missing${guide}`}`);
+  }
+  console.log(`Checks   ${verificationCommands(cwd).length} configured or detected`);
+  console.log(`Hooks    Claude ${existsSync(join(cwd, '.claude', 'settings.local.json')) ? 'configured' : 'optional'} · Codex ${existsSync(join(cwd, '.codex', 'hooks.json')) ? 'configured' : 'optional'}`);
   console.log('Structured capture should be checked after agent CLI upgrades.');
 });
 cli.command('tui').description('Open the interactive terminal menu').action(async () => withProjectAsync((app) => openMenu(app, cwd)));
@@ -346,7 +388,10 @@ async function launch(agentId: string, options: { structured?: boolean }): Promi
 async function launchIn(app: ThreadPort, agentId: string, workingDirectory: string, structured = false, providerSessionId: string | null = null): Promise<void> {
     const adapter = findAgent(agentId);
     requireActive(app);
-    if (!runner.available(adapter.command)) throw new Error(`${adapter.label} was not found (${adapter.command}). Run "threadport doctor".`);
+    if (!runner.available(adapter.command)) {
+      const guide = agentId === 'claude' ? ' Install Claude Code: https://code.claude.com/docs/en/setup' : agentId === 'codex' ? ' Install Codex CLI: https://developers.openai.com/codex/cli/' : '';
+      throw new Error(`${adapter.label} was not found (${adapter.command}). Run "threadport doctor".${guide}`);
+    }
     const tempDir = mkdtempSync(join(tmpdir(), 'threadport-'));
     const file = join(tempDir, 'handoff.md');
     try {
@@ -374,6 +419,7 @@ async function launchIn(app: ThreadPort, agentId: string, workingDirectory: stri
       }) : runner;
       const run = await app.run(activeAdapter, activeRunner, file, providerSessionId);
       console.log(`\n✓ Run ${run.id} finished (${run.status}, exit code ${run.exitCode}).`);
+      if (run.status === 'failed' && agentId === 'claude') console.error('If Claude asked you to trust this folder and you declined, review the folder and rerun the command.');
       if (run.exitCode !== 0) process.exitCode = run.exitCode ?? 1;
     } finally { rmSync(tempDir, { recursive: true, force: true }); }
 }

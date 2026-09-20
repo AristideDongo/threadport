@@ -2,6 +2,7 @@ import { getEncoding } from 'js-tiktoken';
 import { createHash } from 'node:crypto';
 import type { ContextMode, GitState, Session, WorkRecord } from '../domain/model.js';
 import type { SessionStore } from './ports.js';
+import { parseHandoff, parseVerification } from './continuity.js';
 
 const encoding = getEncoding('cl100k_base');
 const budgets: Record<ContextMode, number> = { minimal: 500, standard: 1500, deep: 4000, full: 10000 };
@@ -99,6 +100,22 @@ export function buildContextPack(store: SessionStore, session: Session, git: Git
     const files = git.changedFiles.filter((file) => !excluded(file, patterns));
     add('Git state', 'git:live', `Branch: ${git.branch ?? 'unknown'}\nHEAD: ${git.head ?? 'unknown'}\nChanged files:\n${files.map((file) => `- ${file}`).join('\n')}`);
   }
+  const handoffIndex = records.findLastIndex((item) => item.kind === 'handoff');
+  if (handoffIndex >= 0) {
+    const handoff = parseHandoff(records[handoffIndex]?.body ?? '');
+    if (handoff) {
+      const stale = handoff.fingerprint !== gitFingerprint(git, patterns) || records.slice(handoffIndex + 1).some((item) => item.kind !== 'summary');
+      add('Saved handoff', 'work-records', `${stale ? '⚠ Handoff may be stale; review current files.\n' : ''}${handoff.content}`);
+    }
+  }
+  const verification = records.filter((item) => item.kind === 'verification').at(-1);
+  if (verification) {
+    const report = parseVerification(verification.body);
+    if (report) add('Verification', 'work-records', report.passed && report.fingerprint !== null && report.fingerprint === gitFingerprint(git, patterns)
+      ? `Passed on current Git state: ${report.results.map((item) => `${item.command} ${item.args.join(' ')}`).join('; ')}`
+      : 'Unverified or stale for the current Git state.');
+  }
+  addItems('Linked work', 'work-records', records.filter((item) => item.kind === 'link').map((item) => `- ${item.title}: ${item.body}`));
   const latestSummary = summaries[0];
   if (latestSummary) {
     const match = /\nGit fingerprint: ([a-f0-9]{16}|unavailable)$/.exec(latestSummary.body);

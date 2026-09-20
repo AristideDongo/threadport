@@ -50,6 +50,14 @@ it('serves authenticated session and task workflows over HTTP', async () => {
     expect((await updated.json() as { title: string }).title).toBe('Write broader API test');
     expect((await request('/v1/sessions/finish', 'POST', { id: session.id })).status).toBe(200);
     expect((await request('/v1/sessions/open', 'POST', { id: session.id })).status).toBe(200);
+    expect((await request('/v1/links', 'POST', { kind: 'issue', url: 'https://github.com/example/repo/issues/42' })).status).toBe(201);
+    const draftResponse = await request('/v1/handoff/draft');
+    const draft = await draftResponse.json() as { content: string };
+    expect(draft.content).toContain('Issue #42');
+    expect((await request('/v1/handoff', 'POST', { content: draft.content })).status).toBe(201);
+    expect((await request('/v1/handoff')).status).toBe(200);
+    expect((await request('/v1/privacy/audit')).status).toBe(200);
+    expect((await request('/v1/verification')).status).toBe(200);
     expect((await request('/v1/notes', 'POST', { title: 'Oversized', body: 'x'.repeat(65_000) })).status).toBe(413);
   } finally {
     if (child && child.exitCode === null) {
@@ -76,14 +84,20 @@ it('exposes session and task workflows through MCP', async () => {
     await client.connect(transport);
     const tools = await client.listTools();
     expect(tools.tools.map((tool) => tool.name)).toContain('threadport_complete_task');
+    expect(tools.tools.map((tool) => tool.name)).toContain('threadport_handoff_draft');
     const created = await client.callTool({ name: 'threadport_new_session', arguments: { title: 'MCP workflow' } });
     expect(JSON.stringify(created.content)).toContain('MCP workflow');
     const resources = await client.listResources();
     expect(resources.resources.map((resource) => resource.uri)).toContain('threadport://context');
+    expect(resources.resources.map((resource) => resource.uri)).toContain('threadport://handoff');
     const context = await client.readResource({ uri: 'threadport://context' });
     expect(JSON.stringify(context.contents)).toContain('MCP workflow');
     const prompts = await client.listPrompts();
     expect(prompts.prompts.map((prompt) => prompt.name)).toContain('continue-task');
+    const handoff = await client.callTool({ name: 'threadport_handoff_draft', arguments: {} });
+    expect(JSON.stringify(handoff.content)).toContain('MCP workflow');
+    const privacy = await client.callTool({ name: 'threadport_privacy_audit', arguments: {} });
+    expect(JSON.stringify(privacy.content)).toContain('contextTokens');
     const task = await client.callTool({ name: 'threadport_add_task', arguments: { title: 'Verify MCP' } });
     const taskText = task.content.find((item) => item.type === 'text');
     if (!taskText || taskText.type !== 'text') throw new Error('Task response missing');

@@ -35,6 +35,8 @@ CI runs these checks on Linux, macOS, and Windows. It keeps a stable `verify` st
 
 Tests cover local workflows and simulated structured provider formats. A live Claude or Codex check requires an installed agent, a configured account, and an intentional run. Provider formats may evolve.
 
+Product hypotheses, interview tasks, and success measures are in [research.md](research.md). The plan does not claim that interviews have already been conducted.
+
 ## Capture boundaries
 
 Interactive mode gives the terminal to the agent and cannot see conversations the agent does not expose. `--structured` normalizes available JSON events. A summary can describe only stored data; it cannot reconstruct private reasoning that was never captured. Project data stays local unless a launched agent transmits it under its own rules.

@@ -11,6 +11,8 @@ const recordInput = z.object({ title: z.string().min(1).max(200), body: z.string
 const idInput = z.object({ id: z.string().min(1).max(200) });
 const renameInput = idInput.extend({ title: z.string().min(1).max(200) });
 const updateRecordInput = renameInput.extend({ body: z.string().max(20_000).optional() });
+const handoffInput = z.object({ content: z.string().min(1).max(18_000) });
+const linkInput = z.object({ kind: z.enum(['issue', 'pr']), url: z.string().url().max(500) });
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -76,7 +78,21 @@ export async function serveApi(app: ThreadPort, cwd: string, port: number): Prom
         return;
       }
       if (request.method === 'POST' && url.pathname === '/v1/summary') { respond(response, 201, app.summarize()); return; }
+      if (request.method === 'POST' && ['/v1/handoff', '/v1/links'].includes(url.pathname)) {
+        void (async () => {
+          try {
+            const input = await readJson(request);
+            if (url.pathname === '/v1/handoff') respond(response, 201, app.saveHandoff(handoffInput.parse(input).content));
+            else { const link = linkInput.parse(input); respond(response, 201, app.linkWork(link.kind, link.url)); }
+          } catch (error: unknown) { respond(response, 400, { error: error instanceof Error ? error.message : String(error) }); }
+        })();
+        return;
+      }
       if (request.method === 'GET' && url.pathname === '/v1/status') { respond(response, 200, { active: app.active() }); return; }
+      if (request.method === 'GET' && url.pathname === '/v1/handoff/draft') { respond(response, 200, { content: app.handoffDraft() }); return; }
+      if (request.method === 'GET' && url.pathname === '/v1/handoff') { respond(response, 200, { handoff: app.latestHandoff() }); return; }
+      if (request.method === 'GET' && url.pathname === '/v1/verification') { respond(response, 200, { verification: app.verificationStatus() }); return; }
+      if (request.method === 'GET' && url.pathname === '/v1/privacy/audit') { respond(response, 200, app.privacyAudit()); return; }
       if (request.method === 'GET' && url.pathname === '/v1/sessions') { respond(response, 200, { sessions: app.sessions() }); return; }
       if (request.method === 'GET' && url.pathname === '/v1/context') {
         const mode = assertMode(url.searchParams.get('mode') ?? readConfig(cwd).context.defaultMode);

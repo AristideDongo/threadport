@@ -19,7 +19,7 @@ export class TerminalAgentRunner implements AgentRunner {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, { cwd, stdio: 'inherit', env: process.env });
       child.once('error', reject);
-      child.once('close', (code, signal) => resolve(code ?? (signal ? 128 : 1)));
+      child.once('close', (code, signal) => resolve(code ?? (signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 1)));
     });
   }
 }

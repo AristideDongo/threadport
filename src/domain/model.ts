@@ -1,7 +1,7 @@
 export type SessionStatus = 'active' | 'paused' | 'done';
-export type RunStatus = 'running' | 'completed' | 'failed' | 'interrupted';
+export type RunStatus = 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled';
 export type ContextMode = 'minimal' | 'standard' | 'deep' | 'full';
-export type RecordKind = 'note' | 'task' | 'error' | 'command' | 'test' | 'summary' | 'memory' | 'usage' | 'file' | 'artifact' | 'constraint';
+export type RecordKind = 'note' | 'task' | 'error' | 'command' | 'test' | 'summary' | 'memory' | 'usage' | 'file' | 'artifact' | 'constraint' | 'verification' | 'handoff' | 'link';
 export type RecordStatus = 'open' | 'done' | 'failed' | 'info';
 
 export interface WorkRecord {

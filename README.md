@@ -76,6 +76,9 @@ Use `threadport doctor` to see installed agent versions. After upgrading an agen
 | `command-log "command" [-d "result"]` | Record a command run elsewhere. |
 | `memory "text"` | Add durable project knowledge available to other sessions. |
 | `summary` | Build a deterministic summary of tasks, notes, decisions, tests, errors, and Git state. |
+| `verify [executable] [args...]` | Run configured checks or one command and bind the results to the current Git state. |
+| `handoff draft [-o file]`, `handoff save <file>`, `handoff show` | Draft, review, save, and inspect a cross-agent handoff. |
+| `link issue <url>`, `link pr <url>` | Associate a session with a canonical GitHub issue or pull request. |
 | `search "terms"` | Search sessions, decisions, and records locally with SQLite FTS5. |
 | `export <id> --out <file>`, `import <file>` | Transfer a session in a versioned JSON archive. |
 | `context [--mode MODE] [--explain]` | Preview the context pack, its sources, token budget, and excluded paths. |
@@ -85,9 +88,38 @@ Use `threadport doctor` to see installed agent versions. After upgrading an agen
 | `config show`, `config set-default-mode <mode>` | View configuration or change the default context mode. |
 | `tui`, `serve`, `mcp` | Open the terminal menu, local HTTP API, or MCP server. |
 | `hook install claude`, `hook install codex` | Add optional local agent lifecycle hooks. |
-| `privacy scrub`, `mcp setup` | Clean stored data or show MCP client setup commands. |
+| `privacy audit [--show-context]`, `privacy scrub`, `mcp setup` | Review sharing risks, clean stored data, or show MCP setup commands. |
 
 Built-in agents are `claude` and `codex`. `run` and `switch` use the configured context mode (`standard` by default). `switch` records a handoff event when the previous run used a different agent. If a process crashes, an unfinished run is marked `interrupted` on the next access unless its owner process is still running.
+
+### Verify and review a handoff
+
+`verify` detects `check`, `test`, and `build` scripts in a Node project. For another project, set explicit commands in `.threadport/config.json`. Commands run in order without a shell. A successful report applies only while the Git state remains the same; a changed file makes the report stale. A project without Git can run checks, but ThreadPort cannot mark them as verified against a Git state.
+
+```json
+{
+  "verification": {
+    "commands": [
+      { "command": "cargo", "args": ["test"] },
+      { "command": "cargo", "args": ["clippy", "--", "-D", "warnings"] }
+    ]
+  }
+}
+```
+
+Link work, verify it, and edit a draft before saving it:
+
+```bash
+threadport link issue https://github.com/owner/repo/issues/42
+threadport verify
+threadport privacy audit --show-context
+threadport handoff draft --out .threadport/handoff.md
+# Review and edit .threadport/handoff.md in your editor.
+threadport handoff save .threadport/handoff.md
+threadport handoff show
+```
+
+Keep the draft under `.threadport/` or outside the repository so writing it does not change the Git state being verified. A saved handoff retains its Git fingerprint; ThreadPort warns when code or recorded work changes afterward. Handoffs include record IDs and clearly mark missing or stale verification. Interactive provider reasoning remains unavailable unless the provider exposes it.
 
 ### Transfer a session between installations
 
@@ -98,7 +130,7 @@ threadport export abc12345 --out session.json
 threadport import session.json
 ```
 
-Version 1 archives include the session, runs, events, decisions, records, and Git snapshots. Import assigns new IDs and marks any previously open run as interrupted. Worktrees and local paths are not transferred. The JSON file may contain sensitive project information; handle it as private data.
+Version 2 archives include the session, runs, events, decisions, records, verification reports, saved handoffs, links, and Git snapshots. ThreadPort also imports version 1 archives. Import assigns new IDs and marks any previously open run as interrupted. Worktrees and local paths are not transferred. The JSON file may contain sensitive project information; handle it as private data.
 
 Exports and imports apply current path exclusions and secret redaction. For data recorded before a privacy rule was added, run `threadport privacy scrub` to clean the local database and rebuild its search index. The command cannot recall archives already shared elsewhere.
 
@@ -113,7 +145,7 @@ Exports and imports apply current path exclusions and secret redaction. For data
 
 Token counts use `cl100k_base` as a **reference measure**; they are not guaranteed to match every model's tokenizer. Sections are selected by priority. `--explain` shows which sections did not fit. Summaries reduce the history sent to an agent; the original events remain in SQLite.
 
-Open tasks and current errors are considered before older notes. Large sections are included item by item or truncated to fit. ThreadPort warns when a summary was recorded against a different Git state or when newer work has been recorded since that summary.
+Open tasks and current errors are considered before older notes. Large sections are included item by item or truncated to fit. Saved handoffs, linked work, and verification status are included as space allows. ThreadPort warns when a summary or handoff may be stale.
 
 `threadport config set-default-mode deep` selects the mode used by `run`, `switch`, the terminal menu, the API, and MCP. Project configuration lives in `.threadport/config.json`, where you can also add exclusions:
 
@@ -142,9 +174,9 @@ threadport compare <claude-fork-id> <codex-fork-id> --diff
 
 ## Local interfaces
 
-- `threadport tui`: keyboard menu for sessions, context, timeline, tasks, and runs; you can also finish or rename a session and edit or remove records.
-- `threadport serve --port 0`: HTTP API bound to `127.0.0.1`. The command prints its URL and a temporary Bearer token. Read endpoints: `/v1/status`, `/v1/sessions`, `/v1/context?mode=standard`, `/v1/timeline`, `/v1/decisions`, `/v1/records`, `/v1/runs`, `/v1/search?q=term`. JSON write endpoints also support finishing, renaming, and deleting sessions and updating or deleting records.
-- `threadport mcp`: MCP server over `stdio`. It exposes an active-context resource, a continuation prompt, and tools for session and record workflows. Run `threadport mcp setup` for client registration commands. Start the MCP client with the project root as its working directory.
+- `threadport tui`: keyboard menu for sessions, context, tasks, verification, privacy audit, linked work, and handoff review.
+- `threadport serve --port 0`: HTTP API bound to `127.0.0.1`. The command prints its URL and a temporary Bearer token. Read endpoints include `/v1/handoff/draft`, `/v1/handoff`, `/v1/verification`, and `/v1/privacy/audit`. `POST /v1/handoff` accepts `{ "content": "..." }`; `POST /v1/links` accepts `{ "kind": "issue", "url": "https://github.com/owner/repo/issues/42" }`. The API does not execute verification commands.
+- `threadport mcp`: MCP server over `stdio`. It exposes context and saved-handoff resources, a continuation prompt, and tools for sessions, records, handoff review, linked work, verification status, and privacy audit. Run `threadport mcp setup` for client registration commands. Start the MCP client with the project root as its working directory.
 
 ### Local agent adapter
 
@@ -174,11 +206,13 @@ private/**
 *.pem
 ```
 
-ThreadPort filters excluded file references from new snapshots, hooks, and session archives. It redacts several common secret formats before storing notes and events or sending a context pack; detection is heuristic. Review `threadport context --explain` and an export file before a sensitive handoff. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
+ThreadPort filters excluded file references from new snapshots, hooks, and session archives. It redacts several common secret formats before storing notes and events or sending a context pack; detection is heuristic. `threadport privacy audit` counts fields that still match the redaction rules and excluded references without printing their values. Review the context and an export file before sharing. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
 
 ## Contributing
 
 Issues and pull requests are welcome. See [Contributing](https://github.com/AristideDongo/threadport/blob/main/CONTRIBUTING.md) for the development setup and review process, and the [Code of Conduct](https://github.com/AristideDongo/threadport/blob/main/CODE_OF_CONDUCT.md) for community expectations. Browse [open issues](https://github.com/AristideDongo/threadport/issues) or [star the project](https://github.com/AristideDongo/threadport/stargazers) if ThreadPort helps your workflow.
+
+The [developer research plan](https://github.com/AristideDongo/threadport/blob/main/docs/research.md) lists the workflow questions and measures we want to test with users. It does not present interviews as completed work.
 
 ## License
 
