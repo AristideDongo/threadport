@@ -43,15 +43,19 @@ Plugin manifests currently configure CLI agents. Storage, export, and hooks are 
 
 The `ci.yml` workflow checks commits on `main` and pull requests. `publish.yml` publishes only a `vX.Y.Z` tag pointing to a commit on `main` whose `package.json` has the same version. The release runs the same checks and verifies that the npm archive contains the CLI but excludes `THREADPORT_PROJECT_PROMPT.md`.
 
-The `threadport` npm package must trust GitHub Actions for repository `AristideDongo/threadport`, workflow file `publish.yml`, and the **npm publish** action. Publishing uses OIDC and needs no `NPM_TOKEN` secret. Since the GitHub repository is private, npm does not generate provenance for these releases.
+The `threadport` npm package must trust GitHub Actions for repository `AristideDongo/threadport`, workflow file `publish.yml`, and the **npm publish** action. Publishing uses OIDC and needs no `NPM_TOKEN` secret. The public repository allows npm provenance to link a package release to its source commit and workflow.
 
 ```bash
+git switch -c release/threadport-version
 npm version patch --no-git-tag-version
 npm install --package-lock-only --ignore-scripts
 npm run check && npm test && npm run build
 git add package.json package-lock.json
 git commit -m "Release $(node -p 'require("./package.json").version')"
-git push origin main
+git push origin HEAD:release/threadport-version
+# Open a pull request from release/threadport-version to main and merge it after CI passes.
+git switch main
+git pull --ff-only origin main
 git tag "v$(node -p 'require("./package.json").version')"
 git push origin "v$(node -p 'require("./package.json").version')"
 ```
