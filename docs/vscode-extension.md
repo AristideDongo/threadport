@@ -2,7 +2,7 @@
 
 ## Scope
 
-The VS Code extension is another interface to the existing ThreadPort engine. It does not maintain a second session model and does not invoke the CLI to perform application operations. The implemented slices cover project discovery, initialization, session creation, SQLite persistence, the Activity Bar view, readable session pages, relevant files, decisions, run history, and terminal-backed agent switching.
+The VS Code extension is another interface to the existing ThreadPort engine. It does not maintain a second session model and does not invoke the CLI to perform application operations. The implemented slices cover project discovery, initialization, session creation, SQLite persistence, the Activity Bar view, native editable session documents, relevant files, decisions, run history, and terminal-backed agent switching.
 
 ## Repository layout
 
@@ -48,9 +48,10 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 
 - Activation registers commands, the Tree View and the status item without opening databases.
 - The composition root creates a project runtime only when a project is expanded or a command needs it.
-- The Tree View renders project folders and their persisted sessions. Its detail items open the matching editor page.
-- `New Session` opens an editor form for the project, objective and optional initial agent.
+- The Tree View renders project folders and their persisted sessions. Its detail items open a `threadport:` JSON document in VS Code's native text editor and reveal the matching property.
+- `New Session` opens a native editable JSON document. Saving it creates the session through the existing application layer.
 - Session actions use application methods and refresh presentation state afterward.
+- CodeLens actions apply document changes, activate sessions, preview context, and switch to installed agents.
 - Agent switching builds a current context pack, starts the selected adapter in a VS Code terminal and records the run lifecycle.
 - Context preview and diagnostics collectors arrive in later vertical slices.
 

@@ -17,6 +17,7 @@
   "categories": ["Other", "Machine Learning"],
   "keywords": ["AI", "agents", "Claude", "Codex", "developer tools", "context"],
   "main": "./dist/extension.js",
+  "activationEvents": ["onFileSystem:threadport"],
   "files": ["dist/", "media/", "README.md", "LICENSE"],
   "scripts": {
     "build": "node esbuild.mjs",

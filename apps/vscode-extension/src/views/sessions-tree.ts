@@ -10,11 +10,11 @@ import {
 } from 'vscode';
 import type { Session } from '../../../../src/domain/model.js';
 import type { ProjectRuntimes } from '../bootstrap/project-runtimes.js';
-import type { SessionSection } from '../webviews/session-page-model.js';
+import type { NativeSessionSection } from '../documents/threadport-documents.js';
 
 export interface ProjectNode { readonly kind: 'project'; readonly folder: WorkspaceFolder }
 export interface SessionNode { readonly kind: 'session'; readonly folder: WorkspaceFolder; readonly session: Session }
-export interface DetailNode { readonly kind: 'detail'; readonly label: string; readonly description: string; readonly icon: string; readonly folder: WorkspaceFolder; readonly session: Session; readonly section: SessionSection }
+export interface DetailNode { readonly kind: 'detail'; readonly label: string; readonly description: string; readonly icon: string; readonly folder: WorkspaceFolder; readonly session: Session; readonly section: NativeSessionSection }
 export interface UninitializedNode { readonly kind: 'uninitialized'; readonly folder: WorkspaceFolder }
 interface MessageNode { readonly kind: 'message'; readonly label: string; readonly icon: string }
 export type SessionsNode = ProjectNode | SessionNode | DetailNode | UninitializedNode | MessageNode;
