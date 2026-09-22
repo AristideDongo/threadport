@@ -2,7 +2,7 @@
   "name": "threadport-vscode",
   "displayName": "ThreadPort",
   "description": "Keep one continuous development session across AI coding agents.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "publisher": "AristideDongo",
@@ -17,6 +17,7 @@
   "categories": ["Other", "Machine Learning"],
   "keywords": ["AI", "agents", "Claude", "Codex", "developer tools", "context"],
   "main": "./dist/extension.js",
+  "activationEvents": ["onFileSystem:threadport"],
   "files": ["dist/", "media/", "README.md", "LICENSE"],
   "scripts": {
     "build": "node esbuild.mjs",
@@ -33,6 +34,7 @@
     "commands": [
       { "command": "threadport.initializeProject", "title": "Initialize Project", "category": "ThreadPort", "icon": "$(database)" },
       { "command": "threadport.newSession", "title": "New Session", "category": "ThreadPort", "icon": "$(add)" },
+      { "command": "threadport.openSessionPage", "title": "View Session", "category": "ThreadPort" },
       { "command": "threadport.openSession", "title": "Open Session", "category": "ThreadPort" },
       { "command": "threadport.refresh", "title": "Refresh", "category": "ThreadPort", "icon": "$(refresh)" }
     ],

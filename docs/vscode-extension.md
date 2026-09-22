@@ -2,7 +2,7 @@
 
 ## Scope
 
-The VS Code extension is another interface to the existing ThreadPort engine. It does not maintain a second session model and does not invoke the CLI to perform application operations. The first vertical slice covers project discovery, initialization, session creation, SQLite persistence, session activation and the Activity Bar view.
+The VS Code extension is another interface to the existing ThreadPort engine. It does not maintain a second session model and does not invoke the CLI to perform application operations. The implemented slices cover project discovery, initialization, session creation, SQLite persistence, the Activity Bar view, native editable session documents, relevant files, decisions, run history, and terminal-backed agent switching.
 
 ## Repository layout
 
@@ -48,10 +48,12 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 
 - Activation registers commands, the Tree View and the status item without opening databases.
 - The composition root creates a project runtime only when a project is expanded or a command needs it.
-- The Tree View renders project folders and their persisted sessions.
-- `New Session` asks for a project in multi-root workspaces, an objective and an optional initial agent.
+- The Tree View renders project folders and their persisted sessions. Its detail items open a `threadport:` JSON document in VS Code's native text editor and reveal the matching property.
+- `New Session` opens a native editable JSON document. Saving it creates the session through the existing application layer.
 - Session actions use application methods and refresh presentation state afterward.
-- Agent terminals, context preview and diagnostics collectors arrive in later vertical slices.
+- CodeLens actions apply document changes, activate sessions, preview context, and switch to installed agents.
+- Agent switching builds a current context pack, starts the selected adapter in a VS Code terminal and records the run lifecycle.
+- Context preview and diagnostics collectors arrive in later vertical slices.
 
 ## Platform and provider limits
 
@@ -64,11 +66,10 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 ## Incremental plan
 
 1. Activation, multi-root discovery, initialization, session creation, persistence and Sidebar.
-2. Claude Code and Codex detection, terminal adapters and `AgentRun` lifecycle.
-3. Git capture, snapshot, context preview and verified Claude-to-Codex switching.
+2. [In progress] Claude Code and Codex detection, terminal adapters and `AgentRun` lifecycle.
+3. Git capture, explicit context preview and verified Claude-to-Codex switching.
 4. Relevant files, decisions, timeline and recovery controls.
 5. Worktree forks, comparisons and native VS Code diffs.
 6. Gemini, OpenCode, marketplace packaging and compatibility automation.
 
 Every slice must pass TypeScript checking, tests, build and package-content validation.
-
