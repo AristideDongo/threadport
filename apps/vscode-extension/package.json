@@ -2,7 +2,7 @@
   "name": "threadport-vscode",
   "displayName": "ThreadPort",
   "description": "Keep one continuous development session across AI coding agents.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "license": "MIT",
   "publisher": "AristideDongo",
@@ -36,6 +36,14 @@
       { "command": "threadport.newSession", "title": "New Session", "category": "ThreadPort", "icon": "$(add)" },
       { "command": "threadport.openSessionPage", "title": "View Session", "category": "ThreadPort" },
       { "command": "threadport.openSession", "title": "Open Session", "category": "ThreadPort" },
+      { "command": "threadport.document.runInstruction", "title": "Run Instruction", "category": "ThreadPort", "icon": "$(play)" },
+      { "command": "threadport.document.stopAgent", "title": "Stop Agent", "category": "ThreadPort", "icon": "$(debug-stop)" },
+      { "command": "threadport.document.resume", "title": "Resume Interrupted Work", "category": "ThreadPort", "icon": "$(debug-rerun)" },
+      { "command": "threadport.document.previewContext", "title": "Preview Context", "category": "ThreadPort", "icon": "$(preview)" },
+      { "command": "threadport.document.verify", "title": "Verify Work", "category": "ThreadPort", "icon": "$(beaker)" },
+      { "command": "threadport.document.reviewChanges", "title": "Review Changes", "category": "ThreadPort", "icon": "$(diff)" },
+      { "command": "threadport.addActiveFile", "title": "Add File to Context", "category": "ThreadPort", "icon": "$(pinned)" },
+      { "command": "threadport.addSelectionToContext", "title": "Add Selection to Context", "category": "ThreadPort" },
       { "command": "threadport.refresh", "title": "Refresh", "category": "ThreadPort", "icon": "$(refresh)" }
     ],
     "viewsContainers": {
@@ -62,8 +70,23 @@
       "view/item/context": [
         { "command": "threadport.openSession", "when": "view == threadport.sessions && viewItem == threadport.session", "group": "inline@1" },
         { "command": "threadport.initializeProject", "when": "view == threadport.sessions && viewItem == threadport.uninitialized", "group": "inline@1" }
+      ],
+      "explorer/context": [
+        { "command": "threadport.addActiveFile", "when": "resourceScheme == file", "group": "threadport@1" }
+      ],
+      "editor/context": [
+        { "command": "threadport.addActiveFile", "when": "resourceScheme == file", "group": "threadport@1" },
+        { "command": "threadport.addSelectionToContext", "when": "resourceScheme == file && editorHasSelection", "group": "threadport@2" }
       ]
     },
+    "keybindings": [
+      {
+        "command": "threadport.document.runInstruction",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "resourceScheme == threadport && editorTextFocus"
+      }
+    ],
     "configuration": {
       "title": "ThreadPort",
       "properties": {

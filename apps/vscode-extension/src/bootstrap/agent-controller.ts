@@ -31,7 +31,22 @@ export class AgentController {
     }));
   }
 
-  async switch(folder: WorkspaceFolder, sessionId: string, agentId: string): Promise<void> {
+  isRunning(folder: WorkspaceFolder): boolean {
+    return this.runner.owns(folder.uri.fsPath);
+  }
+
+  async stop(folder: WorkspaceFolder): Promise<void> {
+    if (!this.runner.owns(folder.uri.fsPath)) throw new Error('No ThreadPort agent is running for this project.');
+    await this.runner.stop(folder.uri.fsPath);
+    this.onChange();
+  }
+
+  sendInstruction(folder: WorkspaceFolder, instruction: string): void {
+    this.runner.sendText(folder.uri.fsPath, instruction);
+    this.onChange();
+  }
+
+  async switch(folder: WorkspaceFolder, sessionId: string, agentId: string, providerSessionId: string | null = null): Promise<void> {
     const runtime = this.projects.get(folder);
     if (!runtime) throw new Error('This project is not initialized.');
     const adapter = adapterById(agentId);
@@ -55,7 +70,7 @@ export class AgentController {
       { mode: 0o600 }
     );
 
-    const completion = runtime.app.run(adapter, this.runner, contextFile);
+    const completion = runtime.app.run(adapter, this.runner, contextFile, providerSessionId);
     this.onChange();
     void window.showInformationMessage(`Launching ${adapter.label} with the ${runtime.app.session(sessionId).title} context.`);
     void completion

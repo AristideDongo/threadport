@@ -45,6 +45,13 @@ export class VSCodeTerminalAgentRunner implements AgentRunner, Disposable {
     return this.#runs.has(cwd);
   }
 
+  sendText(cwd: string, value: string): void {
+    const run = this.#runs.get(cwd);
+    if (!run) throw new Error('No ThreadPort agent terminal is running for this project.');
+    run.terminal.sendText(value, true);
+    run.terminal.show(false);
+  }
+
   async stop(cwd: string): Promise<void> {
     const run = this.#runs.get(cwd);
     if (!run) return;
