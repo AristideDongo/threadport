@@ -1,8 +1,10 @@
 # ThreadPort for VS Code
 
-ThreadPort keeps a project-owned development session when work moves between AI coding agents. This first preview supports project initialization, persistent session creation and a multi-root aware Sessions view.
+ThreadPort keeps a project-owned development session when work moves between AI coding agents. The preview supports project initialization, persistent sessions, readable session pages, relevant files, decisions, run history, and agent switching from the editor.
 
-Open the ThreadPort Activity Bar view and select **New Session**. The project data stays locally in `.threadport/threadport.sqlite`.
+Open the ThreadPort Activity Bar view and select **New Session**. Session creation opens in an editor page. Expand a session and select **Agent**, **Relevant files**, **Decisions**, or **Runs** to open the corresponding page. Switching to an installed agent creates a current context pack and starts the agent in a VS Code terminal.
+
+Project data stays locally in `.threadport/threadport.sqlite`. Context handoff files are temporary and removed after the agent terminal closes.
 
 ## Development
 

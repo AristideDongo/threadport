@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/threadport.svg)](https://www.npmjs.com/package/threadport)
 
-> The VS Code extension is under active development in [`apps/vscode-extension`](apps/vscode-extension). Its first preview supports project initialization, persistent sessions, multi-root workspaces, and the ThreadPort Activity Bar view. See [the extension design](docs/vscode-extension.md).
+> The VS Code extension is under active development in [`apps/vscode-extension`](apps/vscode-extension). Its preview supports persistent sessions, readable session pages, relevant files, decisions, run history, multi-root workspaces, and terminal-backed agent switching. See [the extension design](docs/vscode-extension.md).
 
 [![CI](https://github.com/AristideDongo/threadport/actions/workflows/ci.yml/badge.svg)](https://github.com/AristideDongo/threadport/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/AristideDongo/threadport?style=flat&logo=github)](https://github.com/AristideDongo/threadport/stargazers)
