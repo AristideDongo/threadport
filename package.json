@@ -18,6 +18,15 @@
     "mcp"
   ],
   "type": "module",
+  "workspaces": [
+    "apps/vscode-extension"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": [
     "dist/"
   ],
@@ -33,7 +42,10 @@
     "dev": "tsx src/interfaces/cli/main.ts",
     "test": "vitest run",
     "test:agents:live": "tsx scripts/agent-smoke.ts",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit && node scripts/check-boundaries.mjs",
+    "check:extension": "npm run check --workspace threadport-vscode",
+    "build:extension": "npm run build && npm run build --workspace threadport-vscode",
+    "package:extension": "npm run build:extension && npm run package --workspace threadport-vscode"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

@@ -23,8 +23,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run check:extension
       - run: npm test
       - run: npm run build
+      - run: npm run build --workspace threadport-vscode
+      - name: Package VS Code extension
+        if: runner.os == 'Linux'
+        run: npm run package --workspace threadport-vscode
       - name: Check package contents
         run: |
           npm pack --dry-run --ignore-scripts --json --silent > threadport-pack.json
