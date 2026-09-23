@@ -247,7 +247,8 @@ export class ThreadPort {
     this.store.addRun(run);
     this.event(session.id, 'AgentRunStarted', adapter.label);
     let code: number;
-    try { code = await runner.run(adapter.command, adapter.args(contextFile), this.cwd); }
+    const args = providerSessionId && adapter.resumeArgs ? adapter.resumeArgs(providerSessionId, contextFile) : adapter.args(contextFile);
+    try { code = await runner.run(adapter.command, args, this.cwd); }
     catch (error: unknown) { code = 1; this.event(session.id, 'ErrorDetected', error instanceof Error ? error.message : String(error)); }
     const finished: AgentRun = { ...run, status: code === 0 ? 'completed' : code === 130 || code === 143 ? 'cancelled' : 'failed', endedAt: new Date().toISOString(), exitCode: code };
     this.store.updateRun(finished);

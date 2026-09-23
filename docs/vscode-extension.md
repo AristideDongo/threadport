@@ -48,12 +48,13 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 
 - Activation registers commands, the Tree View and the status item without opening databases.
 - The composition root creates a project runtime only when a project is expanded or a command needs it.
-- The Tree View renders project folders and their persisted sessions. Its detail items open a `threadport:` JSON document in VS Code's native text editor and reveal the matching property.
-- `New Session` opens a native editable JSON document. Saving it creates the session through the existing application layer.
+- The Tree View renders project folders and their persisted sessions. Its detail items open a `threadport:` Markdown document in VS Code's native text editor and reveal the matching section.
+- `New Session` opens a native editable Markdown document. Saving it creates the session through the existing application layer.
 - Session actions use application methods and refresh presentation state afterward.
-- CodeLens actions apply document changes, activate sessions, preview context, and switch to installed agents.
+- CodeLens actions apply document changes, run the next instruction, stop or switch agents, preview context, execute configured verification commands, and review Git changes through VS Code's native diff editor.
+- Explorer and editor context actions add a file or the current selection to the active session context.
 - Agent switching builds a current context pack, starts the selected adapter in a VS Code terminal and records the run lifecycle.
-- Context preview and diagnostics collectors arrive in later vertical slices.
+- Invalid editable session documents are reported through native VS Code diagnostics.
 
 ## Platform and provider limits
 
@@ -66,9 +67,9 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 ## Incremental plan
 
 1. Activation, multi-root discovery, initialization, session creation, persistence and Sidebar.
-2. [In progress] Claude Code and Codex detection, terminal adapters and `AgentRun` lifecycle.
-3. Git capture, explicit context preview and verified Claude-to-Codex switching.
-4. Relevant files, decisions, timeline and recovery controls.
+2. [Complete] Claude Code and Codex detection, terminal adapters and `AgentRun` lifecycle.
+3. [Complete] Git capture, explicit context preview and verified Claude-to-Codex switching.
+4. [In progress] Relevant files, decisions, timeline and recovery controls.
 5. Worktree forks, comparisons and native VS Code diffs.
 6. Gemini, OpenCode, marketplace packaging and compatibility automation.
 

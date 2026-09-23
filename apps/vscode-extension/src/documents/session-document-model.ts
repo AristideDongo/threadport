@@ -1,50 +1,78 @@
 export interface SessionDocumentEdit {
   readonly objective: string;
   readonly agent: string | null;
+  readonly nextInstruction: string;
   readonly add: {
     readonly relevantFile: { readonly path: string; readonly reason: string };
     readonly decision: { readonly title: string; readonly rationale: string };
   };
 }
 
-function record(value: unknown, label: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(`${label} must be an object.`);
-  return value as Record<string, unknown>;
+const editableHeadings = ['Objective', 'Agent', 'Next instruction', 'Add relevant file', 'Record decision'] as const;
+type EditableHeading = typeof editableHeadings[number];
+
+function section(content: string, heading: EditableHeading): string {
+  const marker = `## ${heading}`;
+  const start = content.indexOf(marker);
+  if (start < 0) throw new Error(`Missing "${marker}" section.`);
+  const bodyStart = start + marker.length;
+  const next = content.indexOf('\n## ', bodyStart);
+  const generated = content.indexOf('\n<!-- threadport:generated -->', bodyStart);
+  const candidates = [next, generated].filter((value) => value >= 0);
+  const end = candidates.length ? Math.min(...candidates) : content.length;
+  return content.slice(bodyStart, end).trim();
 }
 
-function text(value: unknown, label: string, maximum: number): string {
-  if (typeof value !== 'string') throw new Error(`${label} must be text.`);
+function bounded(value: string, label: string, maximum: number): string {
   const normalized = value.trim();
   if (normalized.length > maximum) throw new Error(`${label} must contain at most ${maximum} characters.`);
   return normalized;
 }
 
-export function parseSessionDocument(content: string): SessionDocumentEdit {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    throw new Error('The ThreadPort document must contain valid JSON.');
+function singleLine(value: string, label: string, maximum: number): string {
+  const normalized = bounded(value, label, maximum);
+  if (/\r|\n/.test(normalized)) throw new Error(`${label} must stay on one line.`);
+  return normalized;
+}
+
+function fields(value: string): ReadonlyMap<string, string> {
+  const result = new Map<string, string>();
+  let current: string | null = null;
+  for (const line of value.split(/\r?\n/)) {
+    const match = /^([A-Za-z ]+):\s*(.*)$/.exec(line);
+    if (match?.[1]) {
+      current = match[1].trim().toLowerCase();
+      result.set(current, match[2] ?? '');
+    } else if (current) {
+      result.set(current, `${result.get(current) ?? ''}\n${line}`.trim());
+    }
   }
-  const root = record(raw, 'Document');
-  const objective = text(root.objective, 'Objective', 200);
+  return result;
+}
+
+export function parseSessionDocument(content: string): SessionDocumentEdit {
+  const objective = singleLine(section(content, 'Objective'), 'Objective', 200);
   if (!objective) throw new Error('Objective cannot be empty.');
-  const agent = root.agent === null ? null : text(root.agent, 'Agent', 40);
-  const additions = record(root.add, 'add');
-  const file = record(additions.relevantFile, 'add.relevantFile');
-  const decision = record(additions.decision, 'add.decision');
+  const agentValue = singleLine(section(content, 'Agent'), 'Agent', 40);
+  const relevantFile = fields(section(content, 'Add relevant file'));
+  const decision = fields(section(content, 'Record decision'));
   return {
     objective,
-    agent: agent || null,
+    agent: agentValue && agentValue.toLowerCase() !== 'none' ? agentValue.toLowerCase() : null,
+    nextInstruction: bounded(section(content, 'Next instruction'), 'Next instruction', 20_000),
     add: {
       relevantFile: {
-        path: text(file.path, 'Relevant file path', 200),
-        reason: text(file.reason, 'Relevant file reason', 20_000)
+        path: singleLine(relevantFile.get('path') ?? '', 'Relevant file path', 500),
+        reason: bounded(relevantFile.get('reason') ?? '', 'Relevant file reason', 20_000)
       },
       decision: {
-        title: text(decision.title, 'Decision title', 200),
-        rationale: text(decision.rationale, 'Decision rationale', 20_000)
+        title: singleLine(decision.get('title') ?? '', 'Decision title', 200),
+        rationale: bounded(decision.get('rationale') ?? '', 'Decision rationale', 20_000)
       }
     }
   };
+}
+
+export function headingOffset(content: string, heading: string): number {
+  return Math.max(0, content.indexOf(`## ${heading}`));
 }

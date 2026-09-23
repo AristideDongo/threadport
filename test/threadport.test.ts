@@ -25,3 +25,21 @@ it('creates a session and records an agent handoff', async () => {
     expect(store.latestSnapshot(session.id)?.git.diff).toBe('');
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+it('uses provider resume arguments when a session identifier is available', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'threadport-resume-'));
+  const store = new SqliteStore(join(dir, 'db.sqlite'));
+  try {
+    const app = new ThreadPort(store, { read: () => null }, dir);
+    app.newSession('Resume interrupted work');
+    let received: readonly string[] = [];
+    const runner: AgentRunner = { available: () => true, run: async (_command, args) => { received = args; return 0; } };
+    const adapter: AgentAdapter = {
+      id: 'codex', label: 'Codex', command: 'codex', capabilities: [],
+      args: () => ['new'], resumeArgs: (id, context) => ['resume', id, context]
+    };
+    await app.run(adapter, runner, '/tmp/context.md', 'provider-42');
+    expect(received).toEqual(['resume', 'provider-42', '/tmp/context.md']);
+    expect(app.runs(app.active()?.id ?? '').at(-1)?.providerSessionId).toBe('provider-42');
+  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+});
