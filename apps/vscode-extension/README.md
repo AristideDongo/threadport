@@ -1,5 +1,9 @@
 # ThreadPort for VS Code
 
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/Aristideghost.threadport-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=Aristideghost.threadport-vscode)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/Aristideghost.threadport-vscode)](https://marketplace.visualstudio.com/items?itemName=Aristideghost.threadport-vscode)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AristideDongo/threadport/blob/main/LICENSE)
+
 ThreadPort keeps a project-owned development session when work moves between AI coding agents. It supports project initialization, persistent sessions, native Markdown session documents, relevant files, decisions, run history, verification, Git review, and agent switching from the editor.
 
 Open the ThreadPort Activity Bar view and select **New Session**. Session creation opens as an editable Markdown document in VS Code's native text editor. Edit the objective, select an optional agent, and save the document.
@@ -11,6 +15,18 @@ Write work under **Next instruction**, then press `Ctrl+Enter` (`Cmd+Enter` on m
 Use **ThreadPort: Add File to Context** from the Explorer or editor menu. Select source code and use **ThreadPort: Add Selection to Context** to record a precise line range and its contents. The session document displays current Git changes, verification state, relevant files, decisions, runs, and recent timeline events.
 
 Project data stays locally in `.threadport/threadport.sqlite`. Context handoff files are temporary and removed after the agent terminal closes.
+
+## Requirements
+
+- VS Code 1.105 or newer.
+- At least one supported agent installed in the workspace environment: Claude Code or Codex CLI.
+- Git is recommended for snapshots and native change review.
+
+ThreadPort detects agents in the same environment as the extension host, including WSL, SSH remotes and Dev Containers.
+
+## Support
+
+Report bugs and request features in the [ThreadPort issue tracker](https://github.com/AristideDongo/threadport/issues). See [SUPPORT.md](SUPPORT.md) for the information that helps diagnose a problem.
 
 ## Development
 

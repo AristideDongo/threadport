@@ -5,12 +5,23 @@
   "version": "0.3.0",
   "private": true,
   "license": "MIT",
-  "publisher": "AristideDongo",
+  "publisher": "Aristideghost",
   "repository": {
     "type": "git",
     "url": "https://github.com/AristideDongo/threadport.git"
   },
   "homepage": "https://github.com/AristideDongo/threadport#readme",
+  "bugs": {
+    "url": "https://github.com/AristideDongo/threadport/issues"
+  },
+  "icon": "media/threadport.png",
+  "galleryBanner": {
+    "color": "#0B1020",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "qna": "marketplace",
+  "extensionKind": ["workspace"],
   "engines": {
     "vscode": "^1.105.0"
   },
@@ -18,11 +29,12 @@
   "keywords": ["AI", "agents", "Claude", "Codex", "developer tools", "context"],
   "main": "./dist/extension.js",
   "activationEvents": ["onFileSystem:threadport"],
-  "files": ["dist/", "media/", "README.md", "LICENSE"],
+  "files": ["dist/extension.js", "media/", "README.md", "CHANGELOG.md", "SUPPORT.md", "LICENSE"],
   "scripts": {
     "build": "node esbuild.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
-    "package": "vsce package --no-dependencies --out dist/threadport-vscode.vsix"
+    "package": "vsce package --no-dependencies --out dist/threadport-vscode.vsix",
+    "publish:marketplace": "vsce publish --packagePath dist/threadport-vscode.vsix"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
