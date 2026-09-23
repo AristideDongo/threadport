@@ -1,7 +1,7 @@
 # ThreadPort for VS Code
 
-[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/Aristideghost.threadport-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=Aristideghost.threadport-vscode)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/Aristideghost.threadport-vscode)](https://marketplace.visualstudio.com/items?itemName=Aristideghost.threadport-vscode)
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/aristideghost.threadport-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=aristideghost.threadport-vscode)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/aristideghost.threadport-vscode)](https://marketplace.visualstudio.com/items?itemName=aristideghost.threadport-vscode)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AristideDongo/threadport/blob/main/LICENSE)
 
 ThreadPort keeps a project-owned development session when work moves between AI coding agents. It supports project initialization, persistent sessions, native Markdown session documents, relevant files, decisions, run history, verification, Git review, and agent switching from the editor.
