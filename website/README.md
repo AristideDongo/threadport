@@ -1,6 +1,6 @@
 # ThreadPort website
 
-Static site deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches `website/`. No build step.
+Static site with no build step. Vercel serves it from `main` using the root `vercel.json` (no install, no build, output `website/`); `.github/workflows/pages.yml` can also publish it to GitHub Pages.
 
 Preview locally (ES modules need HTTP, not `file://`):
 
