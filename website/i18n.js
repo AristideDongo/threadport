@@ -12,6 +12,7 @@ export const translations = {
     copyFailed: 'Copy failed. Select the command and copy it manually.',
     'stars.count': '{0} stars',
     'stars.link': 'ThreadPort on GitHub',
+    'stars.cta': 'Star',
     'docs.title': 'Documentation: ThreadPort',
   },
   fr: {
@@ -27,6 +28,7 @@ export const translations = {
     skip: 'Aller au contenu',
     'stars.count': '{0} étoiles',
     'stars.link': 'ThreadPort sur GitHub',
+    'stars.cta': 'Star',
     'nav.label': 'Navigation principale',
     'nav.docs': 'Docs',
     'nav.menu': 'Menu',

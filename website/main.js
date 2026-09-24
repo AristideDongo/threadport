@@ -1,5 +1,5 @@
-import { packs } from './context-packs.js';
-import { language, onLanguageChange, reducedMotion, start } from './shared.js';
+import { packs } from './context-packs.js?v=3';
+import { language, onLanguageChange, reducedMotion, start } from './shared.js?v=3';
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
