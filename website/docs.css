@@ -1,0 +1,180 @@
+/* Documentation layout: a sticky contents list beside a readable column. */
+.docs-layout {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 46rem);
+  gap: var(--s8);
+  padding-block: var(--s7) var(--s9);
+}
+
+.docs-toc nav {
+  position: sticky;
+  top: calc(3.5rem + var(--s5));
+  max-height: calc(100vh - 3.5rem - var(--s7));
+  overflow-y: auto;
+}
+
+.toc-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: var(--s3);
+}
+
+.docs-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--line);
+}
+
+.docs-toc a {
+  display: block;
+  padding: var(--s1) var(--s3);
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.docs-toc a:hover {
+  color: var(--ink);
+}
+
+.docs-toc a[aria-current] {
+  color: var(--thread);
+  border-left-color: var(--thread);
+  font-weight: 500;
+}
+
+.docs-main h1 {
+  font-size: clamp(2.25rem, 1.6rem + 2.5vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.docs-lede {
+  margin-top: var(--s4);
+  font-size: 1.125rem;
+  color: var(--muted);
+}
+
+.docs-main h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  margin-top: var(--s8);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 5rem;
+}
+
+.docs-main p,
+.docs-main ul,
+.docs-main dl,
+.docs-main pre,
+.docs-main .table-scroll {
+  margin-top: var(--s4);
+}
+
+.docs-main ul {
+  padding-left: var(--s5);
+  display: grid;
+  gap: var(--s2);
+}
+
+.docs-main pre {
+  position: relative;
+  padding: var(--s4);
+  padding-right: 5.5rem;
+  background: var(--term-bg);
+  color: var(--term-ink);
+  border-radius: var(--r-control);
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+.code-copy {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--term-muted);
+  font: 500 0.75rem/1 var(--font-body);
+  padding: var(--s2) var(--s3);
+  cursor: pointer;
+}
+
+.code-copy:hover,
+.code-copy:focus-visible {
+  color: var(--term-ink);
+  border-color: var(--term-prompt);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.docs-main table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.docs-main th,
+.docs-main td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--s2) var(--s4) var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.docs-main thead th {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.docs-main td:first-child {
+  min-width: 13rem;
+}
+
+.docs-terms dt {
+  font-weight: 600;
+  margin-top: var(--s4);
+}
+
+.docs-terms dd {
+  margin: var(--s1) 0 0;
+  color: var(--muted);
+}
+
+.docs-edit {
+  margin-top: var(--s7);
+  font-size: 0.9375rem;
+}
+
+.nav-links a[aria-current='page'] {
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .docs-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s5);
+    padding-top: var(--s5);
+  }
+
+  .docs-toc nav {
+    position: static;
+    max-height: none;
+    padding: var(--s4);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+  }
+
+  .docs-main td:first-child {
+    min-width: 10rem;
+  }
+}

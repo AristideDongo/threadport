@@ -285,11 +285,53 @@ kbd {
 }
 
 .github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 2.25rem;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface);
   color: var(--ink);
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   text-decoration: none;
-  padding: var(--s2) var(--s3);
+}
+
+.github-link:hover {
+  border-color: var(--port-dot);
+}
+
+.github-link svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: var(--port-dot);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.github-link:hover svg {
+  fill: var(--port-dot);
+}
+
+.star-count {
+  padding-left: var(--s2);
+  border-left: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-button {
+  display: none;
+}
+
+.version-pill {
+  padding: 0 var(--s2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 500 0.75rem/1.6 var(--font-code);
+  color: var(--muted);
 }
 
 /* Hero */
@@ -531,35 +573,76 @@ kbd {
   white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .terminal-from .line {
-    opacity: 0;
-    animation: appear 0.01s linear forwards;
-    animation-delay: calc(0.25s + var(--i, 0) * 0.28s);
-  }
+/* Played by main.js; without JavaScript or with reduced motion the finished state shows. */
+.handoff-demo.is-playing .terminal-body .line {
+  visibility: hidden;
+}
 
-  .thread-path {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: draw 0.9s cubic-bezier(0.65, 0, 0.35, 1) 2.3s forwards;
-  }
+.handoff-demo.is-playing .terminal-body .line.is-visible {
+  visibility: visible;
+}
 
-  .thread-label,
-  .thread::after {
-    opacity: 0;
-    animation: appear 0.3s ease-out 3.1s forwards;
-  }
+.handoff-demo.is-playing .thread svg {
+  /* The thread runs left to right, so a wipe draws it without depending on stroke lengths. */
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+}
 
-  .terminal-to {
-    opacity: 0.35;
-    animation: appear 0.4s ease-out 3.1s forwards;
-  }
+.handoff-demo.is-playing .thread-label,
+.handoff-demo.is-playing .thread::after {
+  opacity: 0;
+  transition: opacity 0.3s ease-out 0.8s;
+}
 
-  .terminal-to .line {
-    opacity: 0;
-    animation: appear 0.01s linear forwards;
-    animation-delay: calc(3.3s + var(--i, 0) * 0.16s);
-  }
+.handoff-demo.is-playing .terminal-to {
+  opacity: 0.55;
+  transition: opacity 0.4s ease-out 0.8s;
+}
+
+.handoff-demo.is-playing.is-handed-off .thread svg {
+  clip-path: inset(0 0 0 0);
+}
+
+.handoff-demo.is-playing.is-handed-off .thread-label,
+.handoff-demo.is-playing.is-handed-off .thread::after,
+.handoff-demo.is-playing.is-handed-off .terminal-to {
+  opacity: 1;
+}
+
+.handoff-demo {
+  position: relative;
+}
+
+.replay-button {
+  position: absolute;
+  right: 0;
+  bottom: calc(-1 * var(--s6));
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 500 0.8125rem/1 var(--font-body);
+  cursor: pointer;
+  padding: var(--s1) 0;
+}
+
+.replay-button[hidden] {
+  display: none;
+}
+
+.replay-button:hover {
+  color: var(--thread);
+}
+
+.replay-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 @keyframes appear {
@@ -709,6 +792,18 @@ kbd {
   background: var(--surface);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .pack code.is-swapping {
+    animation: swap-in 0.25s ease-out;
+  }
+}
+
+@keyframes swap-in {
+  from {
+    opacity: 0.2;
+  }
+}
+
 .pack .heading {
   color: var(--thread);
   font-weight: 500;
@@ -750,9 +845,13 @@ kbd {
   padding: 0;
   display: grid;
   gap: var(--s5);
-  border-left: 2px solid var(--thread);
   padding-left: var(--s6);
   grid-template-columns: minmax(0, 1fr);
+  position: relative;
+  /* The rail is drawn in two layers: the track, then the part already scrolled past. */
+  background:
+    linear-gradient(var(--thread), var(--thread)) left top / 2px calc(var(--progress, 1) * 100%) no-repeat,
+    linear-gradient(var(--line), var(--line)) left top / 2px 100% no-repeat;
 }
 
 .steps li {
@@ -763,7 +862,7 @@ kbd {
 .steps li::before {
   content: counter(step);
   position: absolute;
-  left: calc(-1 * var(--s6) - 0.8rem - 1px);
+  left: calc(-1 * var(--s6) - 0.8rem + 1px);
   top: -0.1rem;
   width: 1.6rem;
   height: 1.6rem;
@@ -771,9 +870,20 @@ kbd {
   place-items: center;
   border-radius: 50%;
   background: var(--paper);
-  border: 2px solid var(--thread);
-  color: var(--thread);
+  border: 2px solid var(--line);
+  color: var(--muted);
   font: 600 0.8125rem/1 var(--font-body);
+  transition:
+    border-color 0.3s,
+    color 0.3s,
+    background-color 0.3s;
+}
+
+/* Without JavaScript every step is shown as reached. */
+.steps li.is-reached::before,
+html:not(.js) .steps li::before {
+  border-color: var(--thread);
+  color: var(--thread);
 }
 
 .steps h3 {
@@ -832,6 +942,19 @@ kbd {
 
 .redaction .stored {
   border-color: var(--thread);
+}
+
+.secret.is-redacted {
+  background: var(--thread-soft);
+  color: var(--thread);
+  border-radius: var(--r-inline);
+  animation: settle 1.2s ease-out;
+}
+
+@keyframes settle {
+  from {
+    box-shadow: 0 0 0 4px var(--thread-soft);
+  }
 }
 
 .redaction .muted {
@@ -923,6 +1046,54 @@ kbd {
   gap: var(--s3);
 }
 
+/* Page thread: the gutter line that fills as you read; ports light up beside each section. */
+main {
+  position: relative;
+}
+
+.page-thread {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: max(var(--s4), calc((100% - 72rem) / 2 - 3rem));
+  width: 2px;
+  background: linear-gradient(var(--thread), var(--thread)) left top / 2px var(--filled, 0) no-repeat,
+    linear-gradient(to bottom, transparent, var(--line) 8rem, var(--line) calc(100% - 8rem), transparent);
+  pointer-events: none;
+}
+
+.page-thread .port {
+  position: absolute;
+  left: 50%;
+  width: 0.75rem;
+  height: 0.75rem;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  transition:
+    background-color 0.3s,
+    border-color 0.3s,
+    scale 0.3s;
+}
+
+.page-thread .port.is-reached {
+  background: var(--port-dot);
+  border-color: var(--port-dot);
+  scale: 1.15;
+}
+
+@media (max-width: 1360px) {
+  .page-thread {
+    display: none;
+  }
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--s5);
+}
+
 /* Responsive: tablet */
 @media (max-width: 960px) {
   .hero,
@@ -942,9 +1113,54 @@ kbd {
     font-size: 1rem;
   }
 
-  .nav-links,
+  .menu-button {
+    display: inline-grid;
+  }
+
+  .header-row {
+    gap: var(--s3);
+  }
+
+  .header-actions {
+    gap: var(--s1);
+  }
+
+  .brand {
+    font-size: 1rem;
+  }
+
   .github-link {
+    padding: 0 var(--s2);
+  }
+
+  .github-link > span:not(.star-count) {
     display: none;
+  }
+
+  #site-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: none;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    padding: var(--s3) var(--s4) var(--s4);
+  }
+
+  #site-menu[data-open='true'] {
+    display: block;
+  }
+
+  .nav-links {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: var(--s3) 0;
+    font-size: 1rem;
   }
 
   .terminal-from,
@@ -999,7 +1215,55 @@ kbd {
     scroll-behavior: auto;
   }
 
+  .steps li::before,
+  .page-thread .port {
+    transition: none;
+  }
+
   .budget-bar span {
     transition: none;
+  }
+}
+
+/* 404 page */
+.not-found {
+  min-height: 100vh;
+  display: grid;
+  align-content: center;
+  gap: var(--s4);
+}
+
+.not-found h1 {
+  font-size: clamp(2rem, 1.5rem + 2vw, 3rem);
+}
+
+.not-found p {
+  color: var(--muted);
+}
+
+.not-found-thread {
+  width: 15rem;
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.not-found-thread circle {
+  stroke: var(--ink);
+}
+
+.not-found-thread path {
+  stroke: var(--thread);
+}
+
+.not-found-thread .loose {
+  stroke-dasharray: 4 8;
+  opacity: 0.6;
+}
+
+/* Very narrow phones: the brand keeps its mark and drops the word. */
+@media (max-width: 359px) {
+  .brand span {
+    display: none;
   }
 }

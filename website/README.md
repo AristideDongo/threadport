@@ -8,6 +8,9 @@ Preview locally (ES modules need HTTP, not `file://`):
 python3 -m http.server --directory website 4173
 ```
 
-- `index.html` holds the English copy; `i18n.js` holds the French translation keyed by `data-i18n`.
+- `index.html` (home) and `docs.html` hold the English copy; `i18n.js` holds the French strings keyed by `data-i18n`. The docs page ships one `<article data-lang>` per language.
+- `shared.js` handles language, theme, copy buttons, the mobile menu, the GitHub star count and the npm version (both cached per tab; hidden if the API is unreachable). `main.js` and `docs.js` hold page-specific behaviour.
+- `og-image.png` is the social preview (1200×630). `404.html` is served by Vercel for unknown paths.
 - `context-packs.js` is real `threadport context --mode <mode>` output from a demo session. Regenerate it with the CLI rather than editing it.
-- Design: cool paper, navy ink, a teal thread; amber marks only where the thread meets a terminal. The hero handoff animation is the page's only non-interactive motion and is skipped with `prefers-reduced-motion`.
+- Design: cool paper, navy ink, a teal thread; amber marks only where the thread meets a terminal.
+- Motion follows the thread: the hero types a handoff from Claude Code to Codex (replayable), a gutter line fills as you scroll and lights a port per section, the handoff steps fill their rail, the secret in the privacy example is scrambled into `[REDACTED]`, and the token count animates between modes. All of it is skipped with `prefers-reduced-motion`, and the finished state is in the HTML for visitors without JavaScript.

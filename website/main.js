@@ -1,102 +1,7 @@
 import { packs } from './context-packs.js';
-import { translations } from './i18n.js';
+import { language, onLanguageChange, reducedMotion, start } from './shared.js';
 
-const root = document.documentElement;
-
-function stored(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function store(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* Private mode or blocked storage: the choice simply is not remembered. */
-  }
-}
-
-/* Language: English markup is the source; French replaces the marked strings. */
-const english = new Map();
-for (const element of document.querySelectorAll('[data-i18n]')) english.set(element, element.innerHTML);
-const englishLabels = new Map();
-for (const element of document.querySelectorAll('[data-i18n-label]'))
-  englishLabels.set(element, element.getAttribute('aria-label'));
-
-let language = 'en';
-
-function t(key) {
-  return (language === 'fr' && translations.fr[key]) || translations.en[key] || key;
-}
-
-function applyLanguage(next) {
-  language = next;
-  root.lang = next;
-  for (const [element, html] of english) {
-    const key = element.dataset.i18n;
-    // Static strings from i18n.js only; they may contain <code> and <kbd>.
-    element.innerHTML = next === 'fr' && translations.fr[key] ? translations.fr[key] : html;
-  }
-  for (const [element, label] of englishLabels) {
-    const key = element.dataset.i18nLabel;
-    element.setAttribute('aria-label', next === 'fr' && translations.fr[key] ? translations.fr[key] : label);
-  }
-  document.title = t('meta.title');
-  const toggle = document.querySelector('[data-action="language"]');
-  toggle.setAttribute('aria-label', t('lang.label'));
-  applyThemeLabel();
-  renderPack(currentMode);
-}
-
-document.querySelector('[data-action="language"]').addEventListener('click', () => {
-  const next = language === 'fr' ? 'en' : 'fr';
-  store('threadport-lang', next);
-  applyLanguage(next);
-});
-
-/* Theme: follows the system until the visitor picks one. */
-const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-function activeTheme() {
-  return root.dataset.theme ?? (darkQuery.matches ? 'dark' : 'light');
-}
-
-function applyThemeLabel() {
-  const theme = activeTheme();
-  root.dataset.themeActive = theme;
-  const button = document.querySelector('[data-action="theme"]');
-  button.setAttribute('aria-label', t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark'));
-}
-
-document.querySelector('[data-action="theme"]').addEventListener('click', () => {
-  const next = activeTheme() === 'dark' ? 'light' : 'dark';
-  root.dataset.theme = next;
-  store('threadport-theme', next);
-  applyThemeLabel();
-});
-darkQuery.addEventListener('change', applyThemeLabel);
-
-/* Copy buttons */
-const copyStatus = document.querySelector('[data-copy-status]');
-for (const button of document.querySelectorAll('[data-copy]')) {
-  button.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(button.dataset.copy);
-      button.dataset.copied = '';
-      button.textContent = t('copied');
-      copyStatus.textContent = t('copiedStatus');
-      setTimeout(() => {
-        delete button.dataset.copied;
-        button.textContent = t('copy');
-      }, 1800);
-    } catch {
-      copyStatus.textContent = t('copyFailed');
-    }
-  });
-}
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* Context pack viewer */
 function escapeHtml(value) {
@@ -124,14 +29,42 @@ function highlight(text) {
 
 const tabs = [...document.querySelectorAll('[role="tab"][data-mode]')];
 const panel = document.getElementById('pack-panel');
+const tokensOutput = document.querySelector('[data-pack="tokens"]');
 let currentMode = 'standard';
+let shownTokens = packs.standard.tokens;
+let countFrame = 0;
 
-function renderPack(mode) {
+/** Counts the token total from its previous value, so switching modes shows how the budget changes. */
+function countTokens(target) {
+  cancelAnimationFrame(countFrame);
+  const from = shownTokens;
+  if (reducedMotion.matches || from === target) {
+    shownTokens = target;
+    tokensOutput.textContent = target.toLocaleString(language);
+    return;
+  }
+  const started = performance.now();
+  const step = (now) => {
+    const progress = Math.min(1, (now - started) / 450);
+    shownTokens = Math.round(from + (target - from) * (1 - (1 - progress) ** 3));
+    tokensOutput.textContent = shownTokens.toLocaleString(language);
+    if (progress < 1) countFrame = requestAnimationFrame(step);
+  };
+  countFrame = requestAnimationFrame(step);
+}
+
+function renderPack(mode, animate = false) {
   const pack = packs[mode];
   if (!pack) return;
   currentMode = mode;
-  document.querySelector('[data-pack="text"]').innerHTML = highlight(pack.text);
-  document.querySelector('[data-pack="tokens"]').textContent = pack.tokens.toLocaleString(language);
+  const code = document.querySelector('[data-pack="text"]');
+  code.innerHTML = highlight(pack.text);
+  if (animate && !reducedMotion.matches) {
+    code.classList.remove('is-swapping');
+    void code.offsetWidth;
+    code.classList.add('is-swapping');
+  }
+  countTokens(pack.tokens);
   document.querySelector('[data-pack="budget"]').textContent = pack.budget.toLocaleString(language);
   document.querySelector('[data-pack="mode"]').textContent = mode;
   document
@@ -146,7 +79,7 @@ function renderPack(mode) {
 }
 
 for (const tab of tabs) {
-  tab.addEventListener('click', () => renderPack(tab.dataset.mode));
+  tab.addEventListener('click', () => renderPack(tab.dataset.mode, true));
   // Arrow keys move between tabs, as in the WAI-ARIA tabs pattern.
   tab.addEventListener('keydown', (event) => {
     const index = tabs.indexOf(tab);
@@ -154,16 +87,173 @@ for (const tab of tabs) {
     if (!(event.key in moves)) return;
     event.preventDefault();
     const next = tabs[(index + moves[event.key] + tabs.length) % tabs.length];
-    renderPack(next.dataset.mode);
+    renderPack(next.dataset.mode, true);
     next.focus();
   });
 }
 
-/* Stagger the hero terminal lines (CSS reads --i). */
-for (const terminal of document.querySelectorAll('.terminal-body')) {
-  for (const [index, line] of terminal.querySelectorAll('.line').entries())
-    line.style.setProperty('--i', String(index));
+/*
+ * Hero handoff: commands are typed in the Claude terminal, the thread carries handoff.md across, then the Codex
+ * terminal types its command and receives the context. The full text is in the HTML, so without JavaScript or
+ * with reduced motion the finished state shows immediately.
+ */
+const demo = document.querySelector('.handoff-demo');
+const replay = document.querySelector('[data-action="replay"]');
+let playId = 0;
+
+function prepareLines(terminal) {
+  const lines = [...terminal.querySelectorAll('.line')];
+  return lines.map((line, index) => {
+    const typed = Boolean(line.querySelector('.prompt')) || /\\\s*$/.test(lines[index - 1]?.textContent ?? '');
+    const node = [...line.childNodes].findLast((child) => child.nodeType === Node.TEXT_NODE);
+    const text = node?.textContent ?? '';
+    return { line, typed, node, text };
+  });
 }
 
-const preferred = stored('threadport-lang') ?? (navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en');
-applyLanguage(preferred === 'fr' ? 'fr' : 'en');
+const terminals = [...document.querySelectorAll('.handoff-demo .terminal-body')].map(prepareLines);
+
+function resetDemo() {
+  for (const lines of terminals)
+    for (const item of lines) {
+      item.line.classList.remove('is-visible');
+      if (item.node) item.node.textContent = item.text;
+    }
+}
+
+async function typeTerminal(lines, id) {
+  for (const item of lines) {
+    if (id !== playId) return;
+    if (item.typed && item.node) {
+      item.node.textContent = '';
+      item.line.classList.add('is-visible');
+      for (let index = 1; index <= item.text.length; index++) {
+        if (id !== playId) return;
+        item.node.textContent = item.text.slice(0, index);
+        await wait(item.text[index - 1] === ' ' ? 10 : 24);
+      }
+      await wait(220);
+    } else {
+      item.line.classList.add('is-visible');
+      await wait(90);
+    }
+  }
+}
+
+async function playHandoff() {
+  if (!demo || reducedMotion.matches) return;
+  const id = ++playId;
+  resetDemo();
+  demo.classList.remove('is-handed-off');
+  demo.classList.add('is-playing');
+  if (replay) replay.hidden = true;
+  await wait(400);
+  await typeTerminal(terminals[0] ?? [], id);
+  if (id !== playId) return;
+  await wait(250);
+  demo.classList.add('is-handed-off');
+  await wait(950);
+  await typeTerminal(terminals[1] ?? [], id);
+  if (id !== playId) return;
+  demo.classList.remove('is-playing');
+  resetDemo();
+  if (replay) replay.hidden = false;
+}
+
+replay?.addEventListener('click', () => void playHandoff());
+
+/*
+ * The page thread: a line in the left gutter that fills as you scroll and lights a port beside each section.
+ * The handoff steps use the same progress for their own rail.
+ */
+const pageThread = document.querySelector('.page-thread');
+const ports = [];
+const steps = document.querySelector('.steps');
+const stepItems = [...document.querySelectorAll('.steps li')];
+
+function layoutPorts() {
+  if (!pageThread) return;
+  const main = document.getElementById('main');
+  const top = main.getBoundingClientRect().top + window.scrollY;
+  for (const port of pageThread.querySelectorAll('.port')) port.remove();
+  ports.length = 0;
+  for (const heading of document.querySelectorAll('.section h2, .closing h2')) {
+    const port = document.createElement('span');
+    port.className = 'port';
+    const y = heading.getBoundingClientRect().top + window.scrollY - top + heading.offsetHeight / 2;
+    port.style.top = `${y}px`;
+    pageThread.append(port);
+    ports.push({ port, y });
+  }
+}
+
+let scrollFrame = 0;
+function onScroll() {
+  cancelAnimationFrame(scrollFrame);
+  scrollFrame = requestAnimationFrame(() => {
+    const reading = window.scrollY + window.innerHeight * 0.6;
+    if (pageThread) {
+      const main = document.getElementById('main');
+      const top = main.getBoundingClientRect().top + window.scrollY;
+      const filled = Math.max(0, reading - top);
+      pageThread.style.setProperty('--filled', `${filled}px`);
+      for (const { port, y } of ports) port.classList.toggle('is-reached', y <= filled);
+    }
+    if (steps) {
+      const box = steps.getBoundingClientRect();
+      const progress = Math.min(1, Math.max(0, (window.innerHeight * 0.6 - box.top) / box.height));
+      steps.style.setProperty('--progress', progress.toFixed(3));
+      for (const item of stepItems)
+        item.classList.toggle('is-reached', item.getBoundingClientRect().top < window.innerHeight * 0.6);
+    }
+  });
+}
+
+/* Redaction: when the example comes into view, the token is shown, scrambled, then replaced as it is stored. */
+const redaction = document.querySelector('[data-redact]');
+function playRedaction() {
+  if (!redaction || reducedMotion.matches) return;
+  const secret = redaction.dataset.redact;
+  const glyphs = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let frame = 0;
+  const timer = setInterval(() => {
+    frame++;
+    const kept = Math.max(0, secret.length - frame * 2);
+    redaction.textContent =
+      secret.slice(0, kept) +
+      Array.from({ length: secret.length - kept }, () => glyphs[Math.floor(Math.random() * glyphs.length)]).join('');
+    if (kept === 0) {
+      clearInterval(timer);
+      redaction.textContent = '[REDACTED]';
+      redaction.classList.add('is-redacted');
+    }
+  }, 45);
+  redaction.textContent = secret;
+}
+
+if (redaction && 'IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      setTimeout(playRedaction, 400);
+    },
+    { threshold: 0.8 },
+  );
+  observer.observe(redaction.closest('figure'));
+}
+
+onLanguageChange(() => renderPack(currentMode));
+start();
+layoutPorts();
+onScroll();
+window.addEventListener('scroll', onScroll, { passive: true });
+window.addEventListener('resize', () => {
+  layoutPorts();
+  onScroll();
+});
+document.fonts?.ready.then(() => {
+  layoutPorts();
+  onScroll();
+});
+void playHandoff();
