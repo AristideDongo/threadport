@@ -36,8 +36,8 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/bricolage-grotesque-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="fonts/fonts.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="fonts/fonts.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=3" />
     <script>
       // Applied before first paint so a stored theme never flashes the other one.
       document.documentElement.classList.add('js');
@@ -46,7 +46,7 @@
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
       } catch {}
     </script>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.js?v=3"></script>
   </head>
   <body data-title-key="meta.title">
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>

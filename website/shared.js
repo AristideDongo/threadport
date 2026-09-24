@@ -1,5 +1,5 @@
 // Behaviour shared by every page: language, theme, copy buttons, mobile menu, GitHub stars and npm version.
-import { translations } from './i18n.js';
+import { translations } from './i18n.js?v=3';
 
 const root = document.documentElement;
 export const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -134,12 +134,13 @@ function compact(value) {
 }
 
 function renderStars() {
-  for (const element of document.querySelectorAll('[data-stars]'))
-    element.textContent = stars === null ? 'GitHub' : compact(stars);
+  // No stars yet reads as an invitation rather than a bare "0".
+  const label = stars === null ? 'GitHub' : stars === 0 ? t('stars.cta') : compact(stars);
+  for (const element of document.querySelectorAll('[data-stars]')) element.textContent = label;
   for (const link of document.querySelectorAll('[data-stars-link]'))
     link.setAttribute(
       'aria-label',
-      stars === null
+      stars === null || stars === 0
         ? t('stars.link')
         : `${t('stars.link')}, ${t('stars.count').replace('{0}', stars.toLocaleString(language))}`,
     );
