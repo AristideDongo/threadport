@@ -21,7 +21,7 @@ describe('context privacy', () => {
   it('redacts common token forms', () => {
     expect(redact('token=abc123 password: xyz sk-abcdefghijklmnop')).not.toContain('abc123');
     expect(redact('token=abc123 password: xyz sk-abcdefghijklmnop')).not.toContain('abcdefghijklmnop');
-    expect(redact('api_key = \"quoted-secret\"')).not.toContain('quoted-secret');
+    expect(redact('api_key = "quoted-secret"')).not.toContain('quoted-secret');
   });
 });
 

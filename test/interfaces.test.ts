@@ -59,6 +59,9 @@ it('serves authenticated session and task workflows over HTTP', async () => {
     expect((await request('/v1/privacy/audit')).status).toBe(200);
     expect((await request('/v1/verification')).status).toBe(200);
     expect((await request('/v1/notes', 'POST', { title: 'Oversized', body: 'x'.repeat(65_000) })).status).toBe(413);
+    expect((await request('/v1/handoff', 'POST', { content: 'x'.repeat(65_000) })).status).toBe(413);
+    expect((await request('/v1/unknown')).status).toBe(404);
+    expect((await request('/v1/notes', 'POST', { title: '' })).status).toBe(400);
   } finally {
     if (child && child.exitCode === null) {
       const closed = new Promise<void>((resolve) => child?.once('close', () => resolve()));
@@ -100,12 +103,12 @@ it('exposes session and task workflows through MCP', async () => {
     expect(JSON.stringify(privacy.content)).toContain('contextTokens');
     const task = await client.callTool({ name: 'threadport_add_task', arguments: { title: 'Verify MCP' } });
     const taskText = task.content.find((item) => item.type === 'text');
-    if (!taskText || taskText.type !== 'text') throw new Error('Task response missing');
+    if (taskText?.type !== 'text') throw new Error('Task response missing');
     const parsed: unknown = JSON.parse(taskText.text);
     if (typeof parsed !== 'object' || parsed === null || !('id' in parsed) || typeof parsed.id !== 'string') throw new Error('Task ID missing');
     const completed = await client.callTool({ name: 'threadport_complete_task', arguments: { id: parsed.id } });
     const completedText = completed.content.find((item) => item.type === 'text');
-    if (!completedText || completedText.type !== 'text') throw new Error('Completed task response missing');
+    if (completedText?.type !== 'text') throw new Error('Completed task response missing');
     const completedTask: unknown = JSON.parse(completedText.text);
     expect(completedTask).toMatchObject({ status: 'done' });
   } finally {

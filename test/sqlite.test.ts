@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { SqliteStore } from '../src/infrastructure/sqlite-store.js';
 import type { AgentRun, Session } from '../src/domain/model.js';
 
