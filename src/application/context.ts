@@ -1,4 +1,5 @@
-import { getEncoding, type Tiktoken } from 'js-tiktoken';
+import { Tiktoken } from 'js-tiktoken/lite';
+import cl100kBase from 'js-tiktoken/ranks/cl100k_base';
 import { createHash } from 'node:crypto';
 import type { ContextMode, GitState, Session, WorkRecord } from '../domain/model.js';
 import type { SessionStore } from './ports.js';
@@ -71,7 +72,7 @@ export function redact(value: string): string {
     .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]');
 }
 function count(value: string): number {
-  encoding ??= getEncoding('cl100k_base');
+  encoding ??= new Tiktoken(cl100kBase);
   return encoding.encode(value).length;
 }
 function renderRecords(records: WorkRecord[]): string {
