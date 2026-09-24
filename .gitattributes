@@ -1,0 +1,3 @@
+# Keep LF everywhere so the Biome format check passes on Windows checkouts.
+* text=auto eol=lf
+*.png binary
