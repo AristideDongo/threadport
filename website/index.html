@@ -36,8 +36,8 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/bricolage-grotesque-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="fonts/fonts.css?v=3" />
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="fonts/fonts.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=4" />
     <script>
       // Applied before first paint so a stored theme never flashes the other one.
       document.documentElement.classList.add('js');
@@ -46,7 +46,7 @@
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
       } catch {}
     </script>
-    <script type="module" src="main.js?v=3"></script>
+    <script type="module" src="main.js?v=4"></script>
   </head>
   <body data-title-key="meta.title">
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
@@ -114,7 +114,7 @@
           <ul class="availability" aria-label="Availability" data-i18n-label="availability">
             <li>
               <span class="status status-live" aria-hidden="true"></span><span data-i18n="hero.cli">CLI available on npm</span>
-              <span class="version-pill" data-npm-version hidden></span>
+              <a class="version-pill" data-npm-version href="https://github.com/AristideDongo/threadport/releases/tag/v0.5.0">v0.5.0</a>
             </li>
             <li><span class="status status-soon" aria-hidden="true"></span><span data-i18n="hero.vscode">VS Code extension coming soon</span></li>
           </ul>
