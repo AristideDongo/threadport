@@ -16,6 +16,20 @@ Use **ThreadPort: Add File to Context** from the Explorer or editor menu. Select
 
 Project data stays locally in `.threadport/threadport.sqlite`. Context handoff files are temporary and removed after the agent terminal closes.
 
+Expand a session to check off **Tasks**, or right-click it to rename, finish or delete it. The view title bar offers **Search**, **Draft Handoff**, **Link Issue or Pull Request** and **Privacy Audit**. Select the ThreadPort status bar item for a quick menu; it follows the folder of the active editor. Changes made with the `threadport` CLI appear automatically.
+
+## Chat and MCP
+
+ThreadPort registers an MCP server for each initialized folder, so VS Code chat agents can read the session context and record notes, tasks and decisions. VS Code asks before starting it. In the Chat view, ask `@threadport` about the active session, or use `@threadport /context` and `@threadport /handoff`.
+
+## Settings and trust
+
+`threadport.context.mode` (`minimal`, `standard`, `deep`, `full`) sets the context detail level. When it is not set, the project default from `threadport config set-default-mode` applies.
+
+In Restricted Mode, sessions remain readable and editable, but ThreadPort does not start agents or run verification commands until you trust the workspace. Project agent manifests run only after `threadport plugin trust <id>`.
+
+Run **ThreadPort: Show Logs** to open the ThreadPort output channel when reporting a problem. The interface is available in English and French.
+
 ## Requirements
 
 - VS Code 1.105 or newer.

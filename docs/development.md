@@ -68,4 +68,15 @@ git tag "v$(node -p 'require("./package.json").version')"
 git push origin "v$(node -p 'require("./package.json").version')"
 ```
 
-Wait for the publication workflow to finish before treating the version as available on npm.
+Wait for the publication workflow to finish before treating the version as available on npm. It also creates the GitHub release with generated notes.
+
+### VS Code extension
+
+Bump `version` in `apps/vscode-extension/package.json`, add a section at the top of `apps/vscode-extension/CHANGELOG.md`, and merge. Then push a `vscode-vX.Y.Z` tag on `main`:
+
+```bash
+git tag "vscode-v$(node -p 'require("./apps/vscode-extension/package.json").version')"
+git push origin "vscode-v$(node -p 'require("./apps/vscode-extension/package.json").version')"
+```
+
+`publish-extension.yml` runs the checks and the VS Code integration test, creates a GitHub release with the `.vsix` and the changelog section, and publishes to the Visual Studio Marketplace when the `VSCE_PAT` repository secret is set. Without it, the workflow warns and the `.vsix` from the release can be uploaded manually.
