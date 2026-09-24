@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ThreadPort: one context, any AI coding agent</title>
+    <meta
+      name="description"
+      content="ThreadPort keeps your task context in the project and hands it between Claude Code, Codex and other CLI agents. Available as a CLI; VS Code extension coming soon."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f0f2f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1622" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content="ThreadPort" />
+    <meta property="og:description" content="Switch AI coding agents without losing the thread." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Applied before first paint so a stored theme never flashes the other one.
+      try {
+        const theme = localStorage.getItem('threadport-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell header-row">
+        <a class="brand" href="#top" aria-label="ThreadPort home">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="7" cy="16" r="4.5" />
+            <circle cx="25" cy="16" r="4.5" />
+            <path d="M11.5 16c3-7 6-7 9 0" />
+            <path d="M11.5 16c3 7 6 7 9 0" />
+          </svg>
+          <span>ThreadPort</span>
+        </a>
+        <nav aria-label="Primary">
+          <ul class="nav-links">
+            <li><a href="#context" data-i18n="nav.context">Context</a></li>
+            <li><a href="#handoff" data-i18n="nav.handoff">Handoff</a></li>
+            <li><a href="#privacy" data-i18n="nav.privacy">Privacy</a></li>
+            <li><a href="#vscode">VS Code</a></li>
+          </ul>
+        </nav>
+        <div class="header-actions">
+          <button class="icon-button" type="button" data-action="language" aria-label="Afficher le site en français">
+            <span data-i18n="lang.switch">FR</span>
+          </button>
+          <button class="icon-button" type="button" data-action="theme" aria-label="Switch to dark theme" data-i18n-label="theme.toDark">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-moon"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" /></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-sun">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
+          </button>
+          <a class="github-link" href="https://github.com/AristideDongo/threadport">GitHub</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="hero shell" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <h1 id="hero-title" data-i18n="hero.title">Switch agents. Keep the thread.</h1>
+          <p class="lede" data-i18n="hero.lede">
+            ThreadPort keeps your task in the project: decisions, open tasks, test results and Git state. When you move from
+            Claude Code to Codex, the next agent starts where the last one stopped.
+          </p>
+
+          <div class="install">
+            <label class="install-label" for="install-command" data-i18n="hero.installLabel">Install the CLI (Node.js 24+)</label>
+            <div class="install-box">
+              <code id="install-command">npm install -g threadport</code>
+              <button type="button" class="copy-button" data-copy="npm install -g threadport" data-i18n="copy">Copy</button>
+            </div>
+          </div>
+
+          <ul class="availability" aria-label="Availability" data-i18n-label="availability">
+            <li><span class="status status-live" aria-hidden="true"></span><span data-i18n="hero.cli">CLI available on npm</span></li>
+            <li><span class="status status-soon" aria-hidden="true"></span><span data-i18n="hero.vscode">VS Code extension coming soon</span></li>
+          </ul>
+        </div>
+
+        <figure class="handoff-demo" aria-labelledby="demo-caption">
+          <div class="terminal terminal-from">
+            <div class="terminal-bar"><span>~/api</span><span class="agent-name">claude</span></div>
+            <pre class="terminal-body"><code><span class="line"><span class="prompt">$</span> threadport run claude</span>
+<span class="line muted">→ Launching Claude Code with active session context.</span>
+<span class="line"><span class="prompt">$</span> threadport decision "Keep token IDs in Redis" \</span>
+<span class="line">    -r "Shared revocation across instances"</span>
+<span class="line ok">✓ Decision recorded.</span>
+<span class="line"><span class="prompt">$</span> threadport check npm test</span>
+<span class="line fail">✗ refresh.spec.ts  2 of 14 failed</span></code></pre>
+          </div>
+
+          <div class="thread" aria-hidden="true">
+            <svg viewBox="0 0 400 96" preserveAspectRatio="none">
+              <path class="thread-path" d="M40 0 C 40 60, 360 36, 360 96" />
+            </svg>
+            <span class="thread-label">handoff.md, 438 tokens</span>
+          </div>
+
+          <div class="terminal terminal-to">
+            <div class="terminal-bar"><span>~/api</span><span class="agent-name">codex</span></div>
+            <pre class="terminal-body"><code><span class="line"><span class="prompt">$</span> threadport switch codex</span>
+<span class="line muted">→ Launching Codex CLI with active session context.</span>
+<span class="line">## Session [session:9befafd8]</span>
+<span class="line">Objective: Fix token rotation</span>
+<span class="line">## Open tasks [work-records]</span>
+<span class="line">- [open] Write a concurrency test</span>
+<span class="line">## Tests [work-records]</span>
+<span class="line fail">- [failed] refresh.spec.ts: 2 of 14 failed</span></code></pre>
+          </div>
+          <figcaption id="demo-caption" class="visually-hidden" data-i18n="hero.demoCaption">
+            Claude Code records a decision and a failing test. ThreadPort hands that context to Codex, which starts with the
+            objective, the open task and the failing test.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="section shell" id="context" aria-labelledby="context-title">
+        <div class="section-intro">
+          <h2 id="context-title" data-i18n="context.title">What the next agent receives</h2>
+          <p data-i18n="context.body">
+            A context pack is plain Markdown built from what the session recorded. Every section names its source, and a
+            token budget keeps it short enough to read. Pick a detail level to see the real output for the same session.
+          </p>
+          <ul class="checklist">
+            <li data-i18n="context.item1">Objective, open tasks and current errors first</li>
+            <li data-i18n="context.item2">Live Git branch, HEAD and changed files</li>
+            <li data-i18n="context.item3">Decisions with their reasons, test results and notes</li>
+            <li data-i18n="context.item4">The diff itself in deep and full modes</li>
+          </ul>
+        </div>
+
+        <div class="pack-viewer">
+          <div class="pack-toolbar">
+            <div role="tablist" aria-label="Context detail level" data-i18n-label="context.modes" class="mode-tabs">
+              <button role="tab" type="button" id="tab-minimal" aria-controls="pack-panel" aria-selected="false" tabindex="-1" data-mode="minimal">minimal</button>
+              <button role="tab" type="button" id="tab-standard" aria-controls="pack-panel" aria-selected="true" data-mode="standard">standard</button>
+              <button role="tab" type="button" id="tab-deep" aria-controls="pack-panel" aria-selected="false" tabindex="-1" data-mode="deep">deep</button>
+              <button role="tab" type="button" id="tab-full" aria-controls="pack-panel" aria-selected="false" tabindex="-1" data-mode="full">full</button>
+            </div>
+            <div class="budget">
+              <span class="budget-text" aria-live="polite"><strong data-pack="tokens">438</strong> / <span data-pack="budget">1500</span> <span data-i18n="context.tokens">tokens</span></span>
+              <span class="budget-bar" aria-hidden="true"><span data-pack="bar" style="--fill: 29%"></span></span>
+            </div>
+          </div>
+          <pre class="pack" id="pack-panel" role="tabpanel" aria-labelledby="tab-standard" tabindex="0"><code data-pack="text">Loading the context pack…</code></pre>
+          <p class="pack-command"><code>threadport context --mode <span data-pack="mode">standard</span> --explain</code></p>
+        </div>
+      </section>
+
+      <section class="section shell" id="handoff" aria-labelledby="handoff-title">
+        <div class="section-intro">
+          <h2 id="handoff-title" data-i18n="handoff.title">A handoff in four commands</h2>
+          <p data-i18n="handoff.body">
+            Run these from the root of the project you want to track. Everything is stored in
+            <code>.threadport/</code> next to your code.
+          </p>
+        </div>
+        <ol class="steps">
+          <li>
+            <h3 data-i18n="handoff.s1">Start tracking the project</h3>
+            <pre><code>threadport init</code></pre>
+          </li>
+          <li>
+            <h3 data-i18n="handoff.s2">Describe the task</h3>
+            <pre><code>threadport new "Fix token rotation"
+threadport task add "Write a concurrency test"</code></pre>
+          </li>
+          <li>
+            <h3 data-i18n="handoff.s3">Work with the first agent</h3>
+            <pre><code>threadport run claude
+threadport check npm test</code></pre>
+          </li>
+          <li>
+            <h3 data-i18n="handoff.s4">Hand off to the next one</h3>
+            <pre><code>threadport switch codex</code></pre>
+          </li>
+        </ol>
+        <p class="aside" data-i18n="handoff.aside">
+          Prefer it automatic? <code>threadport hook install claude</code> gives the agent the context when it starts and
+          records edited files and a summary when it stops.
+        </p>
+      </section>
+
+      <section class="section shell" id="privacy" aria-labelledby="privacy-title">
+        <div class="section-intro">
+          <h2 id="privacy-title" data-i18n="privacy.title">It stays on your machine</h2>
+          <p data-i18n="privacy.body">
+            Sessions live in a local SQLite database inside the project, ignored by Git. Nothing is sent anywhere unless an
+            agent you launch sends it under its own rules.
+          </p>
+        </div>
+        <div class="privacy-grid">
+          <dl class="facts">
+            <div>
+              <dt data-i18n="privacy.f1t">Secrets are redacted</dt>
+              <dd data-i18n="privacy.f1d">API keys, GitHub and cloud tokens, JWTs and passwords are replaced before storage and before any handoff.</dd>
+            </div>
+            <div>
+              <dt data-i18n="privacy.f2t">Paths can be excluded</dt>
+              <dd data-i18n="privacy.f2d"><code>.env</code>, keys and <code>secrets/**</code> are left out by default. Add your own in <code>.threadportignore</code>.</dd>
+            </div>
+            <div>
+              <dt data-i18n="privacy.f3t">You can audit before sharing</dt>
+              <dd data-i18n="privacy.f3d"><code>threadport privacy audit</code> counts what would be redacted or excluded, without printing it.</dd>
+            </div>
+          </dl>
+          <figure class="redaction">
+            <figcaption data-i18n="privacy.example">A note as you type it, and as it is stored</figcaption>
+            <pre><code><span class="muted">$</span> threadport note "Staging uses token=ghp_R8x2kq7Lm4Pz9Vw1Yb"</code></pre>
+            <pre class="stored"><code>- [info] Staging uses token=[REDACTED]</code></pre>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section shell" id="agents" aria-labelledby="agents-title">
+        <div class="section-intro">
+          <h2 id="agents-title" data-i18n="agents.title">Works with the agents you already use</h2>
+        </div>
+        <table class="agents-table">
+          <caption class="visually-hidden" data-i18n="agents.caption">Supported agents and how ThreadPort connects to them</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="agents.colAgent">Agent</th>
+              <th scope="col" data-i18n="agents.colHow">How it connects</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Claude Code</th>
+              <td data-i18n="agents.claude">Interactive or structured runs, native session resume, optional lifecycle hooks</td>
+            </tr>
+            <tr>
+              <th scope="row">Codex CLI</th>
+              <td data-i18n="agents.codex">Interactive or structured runs, native session resume, optional lifecycle hooks</td>
+            </tr>
+            <tr>
+              <th scope="row" data-i18n="agents.otherName">Any CLI agent</th>
+              <td data-i18n="agents.other">A small JSON manifest, run only after you trust it with <code>threadport plugin trust</code></td>
+            </tr>
+            <tr>
+              <th scope="row" data-i18n="agents.mcpName">MCP clients</th>
+              <td data-i18n="agents.mcp"><code>threadport mcp</code> exposes the context, handoff and session tools over stdio</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section shell vscode" id="vscode" aria-labelledby="vscode-title">
+        <div class="section-intro">
+          <p class="status-line"><span class="status status-soon" aria-hidden="true"></span><span data-i18n="vscode.status">Coming soon to the Visual Studio Marketplace</span></p>
+          <h2 id="vscode-title" data-i18n="vscode.title">The same thread, inside VS Code</h2>
+          <p data-i18n="vscode.body">
+            The extension opens each session as a Markdown document you edit in place. Write the next instruction, press
+            <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, and ThreadPort starts the agent in a terminal with the current context.
+          </p>
+          <a class="button" href="https://github.com/AristideDongo/threadport/releases" data-i18n="vscode.cta">Follow releases on GitHub</a>
+        </div>
+        <ul class="feature-list">
+          <li data-i18n="vscode.f1">Sessions, tasks and decisions in the Activity Bar, with checkboxes for tasks</li>
+          <li data-i18n="vscode.f2">Switch between Claude Code and Codex from the session document</li>
+          <li data-i18n="vscode.f3">Add a file or a selected range to the context from the editor</li>
+          <li data-i18n="vscode.f4">Chat with <code>@threadport</code> and share the session with Copilot through MCP</li>
+          <li data-i18n="vscode.f5">Changes made with the CLI appear right away</li>
+          <li data-i18n="vscode.f6">English and French interface</li>
+        </ul>
+      </section>
+
+      <section class="closing shell" aria-labelledby="closing-title">
+        <h2 id="closing-title" data-i18n="closing.title">Try it on your next task</h2>
+        <div class="install-box">
+          <code>npm install -g threadport</code>
+          <button type="button" class="copy-button" data-copy="npm install -g threadport" data-i18n="copy">Copy</button>
+        </div>
+        <p class="closing-links">
+          <a href="https://github.com/AristideDongo/threadport#readme" data-i18n="closing.docs">Read the documentation</a>
+          <a href="https://www.npmjs.com/package/threadport" data-i18n="closing.npm">View on npm</a>
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-row">
+        <p data-i18n="footer.license">ThreadPort is open source under the MIT license.</p>
+        <p><a href="https://github.com/AristideDongo/threadport/issues" data-i18n="footer.issues">Report an issue</a></p>
+      </div>
+    </footer>
+    <p class="visually-hidden" role="status" aria-live="polite" data-copy-status></p>
+  </body>
+</html>
