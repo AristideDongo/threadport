@@ -55,6 +55,17 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 - Explorer and editor context actions add a file or the current selection to the active session context.
 - Agent switching builds a current context pack, starts the selected adapter in a VS Code terminal and records the run lifecycle.
 - Invalid editable session documents are reported through native VS Code diagnostics.
+- A file system watcher on `.threadport/threadport.sqlite*` refreshes the tree, status item and open documents when the CLI, hooks or MCP change the database (debounced by 300 ms).
+- Git state is read through a short-lived cache (3 s, cleared on save and on ThreadPort changes), and agent availability is cached until **Refresh**, so CodeLens and document refreshes do not block the extension host.
+- Unsent "Next instruction" drafts are kept in workspace state and survive a window reload.
+- The Tree View shows tasks with checkboxes, and session context menus rename, finish or delete a session.
+- Project agent manifests are offered when the user trusted them with `threadport plugin trust`; untrusted manifests are never probed or run.
+- `threadport.context.mode` overrides the project default from `.threadport/config.json` only when set explicitly.
+- `dist/mcp-server.js` is registered through `lm.registerMcpServerDefinitionProvider`, one server per initialized folder, and runs with VS Code's own runtime (`ELECTRON_RUN_AS_NODE`).
+- The `@threadport` chat participant answers from the active session; `/context` and `/handoff` print the context pack and a handoff draft.
+- Workspace Trust: in Restricted Mode sessions stay readable and editable, but agents, instructions and verification commands are refused.
+- Messages are localized with `vscode.l10n` (`l10n/bundle.l10n.fr.json`, `package.nls.fr.json`). A unit test fails when a new string lacks a French translation.
+- Errors are logged with their stack in the **ThreadPort** output channel (`ThreadPort: Show Logs`).
 
 ## Platform and provider limits
 
@@ -69,8 +80,8 @@ Runs move from `running` to `completed`, `failed`, `cancelled` or `interrupted`.
 1. Activation, multi-root discovery, initialization, session creation, persistence and Sidebar.
 2. [Complete] Claude Code and Codex detection, terminal adapters and `AgentRun` lifecycle.
 3. [Complete] Git capture, explicit context preview and verified Claude-to-Codex switching.
-4. [In progress] Relevant files, decisions, timeline and recovery controls.
+4. [Complete] Relevant files, decisions, tasks, timeline, recovery controls, MCP and chat integration.
 5. Worktree forks, comparisons and native VS Code diffs.
-6. Gemini, OpenCode, marketplace packaging and compatibility automation.
+6. [In progress] Gemini, OpenCode, marketplace packaging and compatibility automation. CI runs the extension in VS Code 1.105 (minimum engine) and the current stable release.
 
 Every slice must pass TypeScript checking, tests, build and package-content validation.

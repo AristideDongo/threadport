@@ -1,0 +1,56 @@
+name: Publish VS Code extension
+
+on:
+  push:
+    tags:
+      - 'vscode-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'AristideDongo/threadport'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check release tag and branch
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node -e 'const version = require("./apps/vscode-extension/package.json").version; if (process.env.RELEASE_TAG !== `vscode-v${version}`) { console.error(`Tag must be vscode-v${version}`); process.exit(1); }'
+          git fetch origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor HEAD refs/remotes/origin/main
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:extension
+      - run: npm test
+      - name: Run the extension in VS Code
+        run: npm run build --workspace threadport-vscode && xvfb-run -a npm run test:integration --workspace threadport-vscode
+      - run: npm run package --workspace threadport-vscode
+      - name: Create GitHub release with the VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" apps/vscode-extension/dist/threadport-vscode.vsix --verify-tag --title "ThreadPort for VS Code ${RELEASE_TAG#vscode-v}" --notes-file <(node -e 'const fs = require("node:fs"); const text = fs.readFileSync("apps/vscode-extension/CHANGELOG.md", "utf8"); const sections = text.split(/^## /m); console.log(sections[1] ? `## ${sections[1]}`.trim() : "See CHANGELOG.md.")')
+      - name: Publish to the Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::warning::VSCE_PAT is not set; upload apps/vscode-extension/dist/threadport-vscode.vsix from the GitHub release manually."
+            exit 0
+          fi
+          npm run publish:marketplace --workspace threadport-vscode

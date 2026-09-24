@@ -35,12 +35,32 @@ jobs:
         run: |
           npm pack --dry-run --ignore-scripts --json --silent > threadport-pack.json
           node -e 'const fs = require("node:fs"); const files = JSON.parse(fs.readFileSync("threadport-pack.json", "utf8"))[0].files.map(file => file.path); if (files.includes("THREADPORT_PROJECT_PROMPT.md") || !files.includes("dist/interfaces/cli/main.js")) process.exit(1)'
+  extension-integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The minimum engine from apps/vscode-extension/package.json, and the current release.
+        vscode: ['1.105.0', 'stable']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace threadport-vscode
+      - name: Run the extension in VS Code ${{ matrix.vscode }}
+        env:
+          VSCODE_VERSION: ${{ matrix.vscode }}
+        run: xvfb-run -a npm run test:integration --workspace threadport-vscode
   verify:
-    needs: checks
+    needs: [checks, extension-integration]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require all platform checks
         env:
           CHECKS_RESULT: ${{ needs.checks.result }}
-        run: test "$CHECKS_RESULT" = success
+          EXTENSION_RESULT: ${{ needs.extension-integration.result }}
+        run: test "$CHECKS_RESULT" = success && test "$EXTENSION_RESULT" = success

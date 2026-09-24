@@ -17,7 +17,8 @@ jobs:
     if: github.repository == 'AristideDongo/threadport'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # contents: write creates the GitHub release once npm has the package.
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v6
@@ -47,3 +48,8 @@ jobs:
           node -e 'const fs = require("node:fs"); const files = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))[0].files.map(file => file.path); if (files.includes("THREADPORT_PROJECT_PROMPT.md") || !files.includes("dist/interfaces/cli/main.js")) process.exit(1)' "$RUNNER_TEMP/threadport-pack.json"
       - name: Publish to npm
         run: npm publish --access public
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --title "ThreadPort CLI $RELEASE_TAG" --generate-notes

@@ -9,5 +9,6 @@ For a bug, include:
 - selected agent and its version;
 - steps that reproduce the problem;
 - relevant error messages with secrets removed.
+- the **ThreadPort** output channel (run **ThreadPort: Show Logs**), with secrets and private paths removed.
 
 Do not attach `.threadport/threadport.sqlite`, context packs, credentials or private source files to a public issue.

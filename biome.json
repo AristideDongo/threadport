@@ -11,7 +11,8 @@
       "test/**",
       "scripts/**",
       "apps/vscode-extension/src/**",
-      "apps/vscode-extension/esbuild.mjs"
+      "apps/vscode-extension/esbuild.mjs",
+      "apps/vscode-extension/test/**"
     ]
   },
   "formatter": {

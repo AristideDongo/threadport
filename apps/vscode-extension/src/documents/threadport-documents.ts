@@ -14,6 +14,8 @@ import {
   Selection,
   Uri,
   commands,
+  extensions,
+  l10n,
   languages,
   window,
   workspace,
@@ -22,17 +24,17 @@ import {
   type Disposable,
   type Event,
   type FileChangeEvent,
+  type Memento,
   type FileStat,
   type FileSystemProvider,
   type TextDocument,
   type TextEditor,
   type WorkspaceFolder,
 } from 'vscode';
-import { readConfig, verificationCommands } from '../../../../src/infrastructure/config.js';
+import { verificationCommands } from '../../../../src/infrastructure/config.js';
 import { LocalCommandExecutor } from '../../../../src/infrastructure/command-executor.js';
-import { GitCliReader } from '../../../../src/infrastructure/git.js';
-import { loadExcludes } from '../../../../src/infrastructure/privacy.js';
-import type { AgentController } from '../bootstrap/agent-controller.js';
+import { assertWorkspaceTrusted, type AgentController } from '../bootstrap/agent-controller.js';
+import { report } from '../logging.js';
 import type { ProjectRuntimes } from '../bootstrap/project-runtimes.js';
 import { headingOffset, parseSessionDocument } from './session-document-model.js';
 
@@ -66,7 +68,6 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
   readonly #changes = new EventEmitter<FileChangeEvent[]>();
   readonly onDidChangeFile: Event<FileChangeEvent[]> = this.#changes.event;
   readonly #entries = new Map<string, DocumentEntry>();
-  readonly #drafts = new Map<string, string>();
   readonly #diagnostics: DiagnosticCollection;
   readonly #subscriptions: Disposable[];
 
@@ -74,13 +75,15 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
     private readonly projects: ProjectRuntimes,
     private readonly agents: AgentController,
     private readonly onChange: () => void,
+    /** Workspace state, so an unsent "Next instruction" survives a window reload. */
+    private readonly drafts: Memento,
   ) {
     this.#diagnostics = languages.createDiagnosticCollection('threadport');
     this.#subscriptions = [
       workspace.registerFileSystemProvider('threadport', this, { isCaseSensitive: true, isReadonly: false }),
       languages.registerCodeLensProvider({ scheme: 'threadport', language: 'markdown' }, this),
       workspace.onDidChangeTextDocument(({ document }) => this.validate(document)),
-      workspace.onDidCloseTextDocument((document) => this.#diagnostics.delete(document.uri)),
+      workspace.onDidCloseTextDocument((document) => this.forget(document.uri)),
       commands.registerCommand('threadport.document.runInstruction', (uri?: Uri) =>
         this.command(() => this.runInstruction(this.targetDocumentUri(uri))),
       ),
@@ -164,30 +167,33 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
       return [
         new CodeLens(at('Objective'), {
           command: 'workbench.action.files.save',
-          title: '$(add) Create ThreadPort session',
+          title: `$(add) ${l10n.t('Create ThreadPort session')}`,
         }),
       ];
     }
     const lenses = [
-      new CodeLens(at('Objective'), { command: 'workbench.action.files.save', title: '$(save) Apply changes' }),
+      new CodeLens(at('Objective'), {
+        command: 'workbench.action.files.save',
+        title: `$(save) ${l10n.t('Apply changes')}`,
+      }),
       new CodeLens(at('Next instruction'), {
         command: 'threadport.document.runInstruction',
-        title: '$(play) Run instruction',
+        title: `$(play) ${l10n.t('Run instruction')}`,
         arguments: [document.uri],
       }),
       new CodeLens(at('Next instruction'), {
         command: 'threadport.document.previewContext',
-        title: '$(preview) Preview context',
+        title: `$(preview) ${l10n.t('Preview context')}`,
         arguments: [document.uri],
       }),
       new CodeLens(at('Verification'), {
         command: 'threadport.document.verify',
-        title: '$(beaker) Verify work',
+        title: `$(beaker) ${l10n.t('Verify work')}`,
         arguments: [document.uri],
       }),
       new CodeLens(at('Changes'), {
         command: 'threadport.document.reviewChanges',
-        title: '$(diff) Review changes',
+        title: `$(diff) ${l10n.t('Review changes')}`,
         arguments: [document.uri],
       }),
     ];
@@ -195,7 +201,7 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
       lenses.push(
         new CodeLens(at('Agent'), {
           command: 'threadport.document.stopAgent',
-          title: '$(debug-stop) Stop current agent',
+          title: `$(debug-stop) ${l10n.t('Stop current agent')}`,
           arguments: [document.uri],
         }),
       );
@@ -216,12 +222,12 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
       lenses.push(
         new CodeLens(at('Objective'), {
           command: 'threadport.document.activate',
-          title: '$(check) Make session active',
+          title: `$(check) ${l10n.t('Make session active')}`,
           arguments: [document.uri],
         }),
       );
     }
-    for (const agent of this.agents.options().filter((option) => option.available)) {
+    for (const agent of this.agents.options(entry.folder ?? undefined).filter((option) => option.available)) {
       lenses.push(
         new CodeLens(at('Agent'), {
           command: 'threadport.document.switchAgent',
@@ -249,12 +255,12 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
         if (createdSession)
           return `# Session created\n\nOpen session \`${createdSession}\` from the ThreadPort view.\n`;
         const edit = parseSessionDocument(content);
-        this.assertAgent(edit.agent);
+        this.assertAgent(edit.agent, target);
         const runtime = this.projects.get(target, true);
-        if (!runtime) throw new Error('Could not initialize this project.');
+        if (!runtime) throw new Error(l10n.t('Could not initialize this project.'));
         const session = runtime.app.newSession(edit.objective);
         if (edit.agent) runtime.app.addRecord('note', 'Initial agent', edit.agent);
-        if (edit.nextInstruction) this.#drafts.set(this.draftKey(target, session.id), edit.nextInstruction);
+        if (edit.nextInstruction) await this.setDraft(target, session.id, edit.nextInstruction);
         createdSession = session.id;
         this.onChange();
         queueMicrotask(() => {
@@ -295,6 +301,31 @@ export class ThreadPortDocuments implements FileSystemProvider, CodeLensProvider
     const position = editor.document.positionAt(headingOffset(editor.document.getText(), heading));
     editor.selection = new Selection(position, position);
     editor.revealRange(new Range(position, position));
+  }
+
+  /**
+   * Opens a sourced handoff draft for review. Saving the document stores it as the session handoff,
+   * the same as `threadport handoff save`.
+   */
+  async openHandoff(folder: WorkspaceFolder): Promise<void> {
+    const runtime = this.projects.get(folder);
+    const session = runtime?.app.active();
+    if (!runtime || !session) throw new Error(l10n.t('Open an active ThreadPort session for this project first.'));
+    const uri = Uri.from({ scheme: 'threadport', path: `/handoff/${folderKey(folder)}-${session.id}.md` });
+    const saved = runtime.app.latestHandoff();
+    this.add(
+      uri,
+      saved && !saved.stale ? saved.content : runtime.app.handoffDraft(),
+      async (content) => {
+        runtime.app.saveHandoff(content);
+        this.onChange();
+        void window.showInformationMessage(l10n.t('Handoff saved for session {0}.', session.id));
+        return content;
+      },
+      folder,
+      session.id,
+    );
+    await this.show(uri);
   }
 
   refresh(): void {
@@ -344,16 +375,16 @@ ${markdownText(folder.name)}
 
   private async applySession(folder: WorkspaceFolder, sessionId: string, content: string): Promise<string> {
     const edit = parseSessionDocument(content);
-    this.assertAgent(edit.agent);
+    this.assertAgent(edit.agent, folder);
     const runtime = this.projects.get(folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
     const current = runtime.app.session(sessionId);
     if (edit.objective !== current.title) runtime.app.rename(sessionId, edit.objective);
     if (edit.add.relevantFile.path || edit.add.decision.title) runtime.app.open(sessionId);
     if (edit.add.relevantFile.path)
       runtime.app.addRecord('file', edit.add.relevantFile.path, edit.add.relevantFile.reason);
     if (edit.add.decision.title) runtime.app.decide(edit.add.decision.title, edit.add.decision.rationale);
-    this.#drafts.set(this.draftKey(folder, sessionId), edit.nextInstruction);
+    await this.setDraft(folder, sessionId, edit.nextInstruction);
     const preferred = runtime.app
       .records(sessionId)
       .findLast(
@@ -366,7 +397,7 @@ ${markdownText(folder.name)}
 
   private sessionContent(folder: WorkspaceFolder, sessionId: string): string {
     const runtime = this.projects.get(folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
     const session = runtime.app.session(sessionId);
     const records = runtime.app.records(sessionId);
     const runs = runtime.app.runs(sessionId);
@@ -379,11 +410,11 @@ ${markdownText(folder.name)}
     const files = records.filter((record) => record.kind === 'file');
     const decisions = runtime.app.decisions(sessionId);
     const events = runtime.app.events(sessionId).slice(-12).reverse();
-    const git = new GitCliReader().read(folder.uri.fsPath);
+    const git = this.projects.git.read(folder.uri.fsPath);
     const verification = session.status === 'active' ? runtime.app.verificationStatus() : null;
     const running = runs.findLast((run) => run.status === 'running');
     const installed = this.agents
-      .options()
+      .options(folder)
       .map((option) => `${option.available ? '✓' : '○'} ${option.label}`)
       .join(' · ');
     return `# ${markdownText(session.title)}
@@ -397,7 +428,7 @@ ${session.title}
 ${markdownText(agent)}
 
 ## Next instruction
-${this.#drafts.get(this.draftKey(folder, sessionId)) ?? ''}
+${this.drafts.get<string>(this.draftKey(folder, sessionId)) ?? ''}
 
 ## Add relevant file
 Path:
@@ -416,7 +447,7 @@ Installed agents: ${installed}
 Write the next task under **Next instruction**, then use the CodeLens action **Run instruction**.
 
 ## Changes
-${git?.changedFiles.length ? git.changedFiles.map((path) => `- \`${markdownText(path)}\``).join('\n') : 'No Git changes detected.'}
+${git?.warning ? `⚠ ${markdownText(git.warning)}\n\n` : ''}${git?.changedFiles.length ? git.changedFiles.map((path) => `- \`${markdownText(path)}\``).join('\n') : 'No Git changes detected.'}
 
 ## Verification
 ${verification ? `${verification.current ? '✓' : '○'} ${verification.report.passed ? 'Passed' : 'Failed'} · ${verification.report.results.length} command(s)` : 'No current verification report.'}
@@ -447,31 +478,35 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
   }
 
   private async runInstruction(uri: Uri): Promise<void> {
+    // Checked first so nothing is recorded for an instruction that cannot run.
+    assertWorkspaceTrusted();
     const entry = this.entry(uri);
     if (!entry.folder || !entry.sessionId) return;
     const document = this.openDocument(uri);
     const edit = parseSessionDocument(document.getText());
-    if (!edit.nextInstruction) throw new Error('Write an instruction in the Next instruction section first.');
-    if (!(await document.save())) throw new Error('Save the session document before running the instruction.');
+    if (!edit.nextInstruction) throw new Error(l10n.t('Write an instruction in the Next instruction section first.'));
+    if (!(await document.save())) throw new Error(l10n.t('Save the session document before running the instruction.'));
     const runtime = this.projects.get(entry.folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
     const running = runtime.app
       .sessions()
       .flatMap((session) => runtime.app.runs(session.id))
       .findLast((run) => run.status === 'running');
     if (this.agents.isRunning(entry.folder) && running?.sessionId !== entry.sessionId) {
-      throw new Error('Another ThreadPort session owns the running agent. Stop it before continuing this session.');
+      throw new Error(
+        l10n.t('Another ThreadPort session owns the running agent. Stop it before continuing this session.'),
+      );
     }
     runtime.app.open(entry.sessionId);
     const taskTitle = line(edit.nextInstruction).slice(0, 200);
     runtime.app.addRecord('task', taskTitle, edit.nextInstruction === taskTitle ? '' : edit.nextInstruction, 'open');
-    this.#drafts.set(this.draftKey(entry.folder, entry.sessionId), '');
+    await this.setDraft(entry.folder, entry.sessionId, '');
     if (this.agents.isRunning(entry.folder)) {
       this.agents.sendInstruction(entry.folder, edit.nextInstruction);
       this.refreshEntry(uri);
       return;
     }
-    const agentId = edit.agent ?? (await this.selectAgent());
+    const agentId = edit.agent ?? (await this.selectAgent(entry.folder));
     if (!agentId) return;
     this.refreshEntry(uri);
     await this.agents.switch(entry.folder, entry.sessionId, agentId);
@@ -485,12 +520,15 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
   }
 
   private async resumeInterrupted(uri: Uri): Promise<void> {
+    // Checked first so nothing is recorded for an instruction that cannot run.
+    assertWorkspaceTrusted();
     const entry = this.entry(uri);
     if (!entry.folder || !entry.sessionId) return;
     const runtime = this.projects.get(entry.folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
     const lastRun = runtime.app.runs(entry.sessionId).at(-1);
-    if (lastRun?.status !== 'interrupted') throw new Error('This session has no interrupted agent run to resume.');
+    if (lastRun?.status !== 'interrupted')
+      throw new Error(l10n.t('This session has no interrupted agent run to resume.'));
     await this.agents.switch(entry.folder, entry.sessionId, lastRun.agentId, lastRun.providerSessionId ?? null);
     this.refreshEntry(uri);
   }
@@ -507,23 +545,24 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
     const entry = this.entry(uri);
     if (!entry.folder || !entry.sessionId) return;
     const runtime = this.projects.get(entry.folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
+    assertWorkspaceTrusted();
     runtime.app.open(entry.sessionId);
     const checks = verificationCommands(entry.folder.uri.fsPath);
     if (!checks.length)
       throw new Error(
-        'No verification commands were detected. Configure verification.commands in .threadport/config.json.',
+        l10n.t('No verification commands were detected. Configure verification.commands in .threadport/config.json.'),
       );
     const report = await window.withProgress(
-      { location: { viewId: 'threadport.sessions' }, title: 'ThreadPort: verifying work' },
+      { location: { viewId: 'threadport.sessions' }, title: l10n.t('ThreadPort: verifying work') },
       () => runtime.app.verify(checks, new LocalCommandExecutor()),
     );
     this.onChange();
     this.refreshEntry(uri);
     await window.showInformationMessage(
       report.passed
-        ? 'ThreadPort verification passed.'
-        : 'ThreadPort verification failed. Review the session document for details.',
+        ? l10n.t('ThreadPort verification passed.')
+        : l10n.t('ThreadPort verification failed. Review the session document for details.'),
     );
   }
 
@@ -531,17 +570,26 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
     const entry = this.entry(uri);
     if (!entry.folder) return;
     const cwd = entry.folder.uri.fsPath;
-    const state = new GitCliReader().read(cwd);
+    const state = this.projects.git.read(cwd);
     if (!state?.changedFiles.length) {
-      await window.showInformationMessage('ThreadPort: no Git changes to review.');
+      await window.showInformationMessage(l10n.t('ThreadPort: no Git changes to review.'));
       return;
     }
     const selected = await window.showQuickPick(
       state.changedFiles.map((path) => ({ label: path })),
-      { placeHolder: 'Select a changed file to review' },
+      { placeHolder: l10n.t('Select a changed file to review') },
     );
     if (!selected) return;
     const currentUri = Uri.joinPath(entry.folder.uri, ...selected.label.split('/'));
+    // The built-in Git extension handles large, renamed and deleted files; the fallback below does not need it.
+    if (extensions.getExtension('vscode.git')?.isActive) {
+      try {
+        await commands.executeCommand('git.openChange', currentUri);
+        return;
+      } catch (error: unknown) {
+        report(error, 'git.openChange');
+      }
+    }
     let current = currentUri;
     try {
       await workspace.fs.stat(currentUri);
@@ -557,7 +605,7 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
       baseline = execFileSync('git', ['show', `HEAD:${selected.label}`], {
         cwd,
         encoding: 'utf8',
-        maxBuffer: 2 * 1024 * 1024,
+        maxBuffer: 16 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'ignore'],
       });
     } catch {
@@ -575,13 +623,10 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
     const entry = this.entry(uri);
     if (!entry.folder || !entry.sessionId) return;
     const runtime = this.projects.get(entry.folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
     if (runtime.app.session(entry.sessionId).status !== 'active')
-      throw new Error('Make this session active before previewing its context.');
-    const content = runtime.app.context(
-      readConfig(entry.folder.uri.fsPath).context.defaultMode,
-      loadExcludes(entry.folder.uri.fsPath),
-    );
+      throw new Error(l10n.t('Make this session active before previewing its context.'));
+    const content = this.projects.context(entry.folder);
     const contextUri = Uri.from({
       scheme: 'threadport',
       path: `/context/${folderKey(entry.folder)}-${entry.sessionId}.md`,
@@ -596,7 +641,7 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
     const entry = this.entry(uri);
     if (!entry.folder || !entry.sessionId) return;
     const runtime = this.projects.get(entry.folder);
-    if (!runtime) throw new Error('This project is not initialized.');
+    if (!runtime) throw new Error(l10n.t('This project is not initialized.'));
     runtime.app.open(entry.sessionId);
     this.onChange();
     this.refreshEntry(uri);
@@ -605,24 +650,24 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
   private async addEditorContext(selectionOnly: boolean, resource?: Uri): Promise<void> {
     const editor = window.activeTextEditor;
     const target = selectionOnly ? editor?.document.uri : resource?.scheme === 'file' ? resource : editor?.document.uri;
-    if (target?.scheme !== 'file') throw new Error('Open or select a workspace file first.');
+    if (target?.scheme !== 'file') throw new Error(l10n.t('Open or select a workspace file first.'));
     const folder = workspace.getWorkspaceFolder(target);
-    if (!folder) throw new Error('The active file is outside the current workspace.');
+    if (!folder) throw new Error(l10n.t('The active file is outside the current workspace.'));
     const runtime = this.projects.get(folder);
-    if (!runtime?.app.active()) throw new Error('Open an active ThreadPort session for this project first.');
+    if (!runtime?.app.active()) throw new Error(l10n.t('Open an active ThreadPort session for this project first.'));
     const path = relative(folder.uri.fsPath, target.fsPath).split(sep).join('/');
     let reason = 'Added explicitly from the VS Code editor.';
     if (selectionOnly) {
       if (!editor || editor.document.uri.toString() !== target.toString())
-        throw new Error('Open a file and select code first.');
-      if (editor.selection.isEmpty) throw new Error('Select code before adding a selection to context.');
+        throw new Error(l10n.t('Open a file and select code first.'));
+      if (editor.selection.isEmpty) throw new Error(l10n.t('Select code before adding a selection to context.'));
       const first = editor.selection.start.line + 1;
       const last = editor.selection.end.line + 1;
       reason = `Selected lines ${first}-${last}:\n${editor.document.getText(editor.selection).slice(0, 18_000)}`;
     }
     runtime.app.addRecord('file', path, reason);
     this.onChange();
-    await window.showInformationMessage(`Added ${path} to the active ThreadPort context.`);
+    await window.showInformationMessage(l10n.t('Added {0} to the active ThreadPort context.', path));
   }
 
   private validate(document: TextDocument): void {
@@ -650,22 +695,36 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
     try {
       await work();
     } catch (error: unknown) {
-      await window.showErrorMessage(`ThreadPort: ${error instanceof Error ? error.message : String(error)}`);
+      await window.showErrorMessage(`ThreadPort: ${report(error, 'Command')}`);
     }
   }
 
-  private assertAgent(agent: string | null): void {
-    if (agent && !this.agents.options().some((option) => option.id === agent))
-      throw new Error(`Unknown agent: ${agent}. Use claude, codex, or none.`);
+  private async setDraft(folder: WorkspaceFolder, sessionId: string, value: string): Promise<void> {
+    await this.drafts.update(this.draftKey(folder, sessionId), value || undefined);
   }
 
-  private async selectAgent(): Promise<string | undefined> {
+  /** Drops closed virtual documents; sessions and context previews rebuild on demand through `hydrate`. */
+  private forget(uri: Uri): void {
+    this.#diagnostics.delete(uri);
+    if (uri.scheme !== 'threadport') return;
+    this.#entries.delete(uri.toString());
+  }
+
+  private assertAgent(agent: string | null, folder: WorkspaceFolder): void {
+    const options = this.agents.options(folder);
+    if (agent && !options.some((option) => option.id === agent))
+      throw new Error(
+        l10n.t('Unknown agent: {0}. Use {1}, or none.', agent, options.map((option) => option.id).join(', ')),
+      );
+  }
+
+  private async selectAgent(folder: WorkspaceFolder): Promise<string | undefined> {
     const pick = await window.showQuickPick(
       this.agents
-        .options()
+        .options(folder)
         .filter((agent) => agent.available)
         .map((agent) => ({ label: agent.label, description: agent.command, id: agent.id })),
-      { placeHolder: 'Select an installed agent' },
+      { placeHolder: l10n.t('Select an installed agent') },
     );
     return pick?.id;
   }
@@ -673,13 +732,13 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
   private async selectFolder(): Promise<WorkspaceFolder | undefined> {
     const folders = workspace.workspaceFolders ?? [];
     if (folders.length === 0) {
-      await window.showErrorMessage('Open a project folder before using ThreadPort.');
+      await window.showErrorMessage(l10n.t('Open a project folder before using ThreadPort.'));
       return undefined;
     }
     if (folders.length === 1) return folders[0];
     const selected = await window.showQuickPick(
       folders.map((folder) => ({ label: folder.name, description: folder.uri.fsPath, folder })),
-      { placeHolder: 'Select a project' },
+      { placeHolder: l10n.t('Select a project') },
     );
     return selected?.folder;
   }
@@ -766,7 +825,7 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
       const session = runtime.app.session(sessionId);
       const content =
         session.status === 'active'
-          ? runtime.app.context(readConfig(folder.uri.fsPath).context.defaultMode, loadExcludes(folder.uri.fsPath))
+          ? this.projects.context(folder)
           : 'Make this session active, then reopen the context preview.\n';
       this.add(uri, content, null, folder, sessionId);
     }
@@ -774,14 +833,14 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
 
   private openDocument(uri: Uri): TextDocument {
     const document = workspace.textDocuments.find((candidate) => candidate.uri.toString() === uri.toString());
-    if (!document) throw new Error('The session document is not open.');
+    if (!document) throw new Error(l10n.t('The session document is not open.'));
     return document;
   }
 
   private targetDocumentUri(uri?: Uri): Uri {
     const target = uri ?? window.activeTextEditor?.document.uri;
     if (target?.scheme !== 'threadport' || !target.path.startsWith('/sessions/'))
-      throw new Error('Open a ThreadPort session document first.');
+      throw new Error(l10n.t('Open a ThreadPort session document first.'));
     return target;
   }
 
