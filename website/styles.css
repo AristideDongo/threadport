@@ -585,22 +585,30 @@ kbd {
 .handoff-demo.is-playing .thread svg {
   /* The thread runs left to right, so a wipe draws it without depending on stroke lengths. */
   clip-path: inset(0 100% 0 0);
-  transition: clip-path 0.9s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 .handoff-demo.is-playing .thread-label,
 .handoff-demo.is-playing .thread::after {
   opacity: 0;
-  transition: opacity 0.3s ease-out 0.8s;
 }
 
 .handoff-demo.is-playing .terminal-to {
   opacity: 0.55;
-  transition: opacity 0.4s ease-out 0.8s;
 }
 
+/* Transitions belong to the handoff itself, so starting or replaying hides everything at once. */
 .handoff-demo.is-playing.is-handed-off .thread svg {
   clip-path: inset(0 0 0 0);
+  transition: clip-path 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.handoff-demo.is-playing.is-handed-off .thread-label,
+.handoff-demo.is-playing.is-handed-off .thread::after {
+  transition: opacity 0.3s ease-out 0.8s;
+}
+
+.handoff-demo.is-playing.is-handed-off .terminal-to {
+  transition: opacity 0.4s ease-out 0.8s;
 }
 
 .handoff-demo.is-playing.is-handed-off .thread-label,
