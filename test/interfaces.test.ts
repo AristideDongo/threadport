@@ -15,7 +15,11 @@ it('serves authenticated session and task workflows over HTTP', async () => {
   store.close();
   let child: ReturnType<typeof spawn> | undefined;
   try {
-    child = spawn(process.execPath, ['--import', tsxLoader, join(process.cwd(), 'src', 'interfaces', 'cli', 'main.ts'), 'serve'], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = spawn(
+      process.execPath,
+      ['--import', tsxLoader, join(process.cwd(), 'src', 'interfaces', 'cli', 'main.ts'), 'serve'],
+      { cwd, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
     const ready = await new Promise<{ url: string; token: string }>((resolve, reject) => {
       let output = '';
       const timer = setTimeout(() => reject(new Error(`API startup timed out: ${output}`)), 10_000);
@@ -23,36 +27,48 @@ it('serves authenticated session and task workflows over HTTP', async () => {
         output += chunk.toString('utf8');
         const url = /ThreadPort API: (http:\/\/127\.0\.0\.1:\d+)/.exec(output)?.[1];
         const token = /Bearer token: ([a-f0-9]+)/.exec(output)?.[1];
-        if (url && token) { clearTimeout(timer); resolve({ url, token }); }
+        if (url && token) {
+          clearTimeout(timer);
+          resolve({ url, token });
+        }
       });
-      child.once('error', (error) => { clearTimeout(timer); reject(error); });
-      child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`API exited with code ${code}: ${output}`)); });
+      child.once('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.once('exit', (code) => {
+        clearTimeout(timer);
+        reject(new Error(`API exited with code ${code}: ${output}`));
+      });
     });
-    const request = (path: string, method = 'GET', body?: object) => fetch(`${ready.url}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${ready.token}`, 'Content-Type': 'application/json' },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    });
+    const request = (path: string, method = 'GET', body?: object) =>
+      fetch(`${ready.url}${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${ready.token}`, 'Content-Type': 'application/json' },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
     expect((await fetch(`${ready.url}/v1/status`)).status).toBe(401);
     const created = await request('/v1/sessions', 'POST', { title: 'API workflow' });
     expect(created.status).toBe(201);
-    const session = await created.json() as { id: string };
+    const session = (await created.json()) as { id: string };
     const taskResponse = await request('/v1/tasks', 'POST', { title: 'Write API test' });
     expect(taskResponse.status).toBe(201);
-    const task = await taskResponse.json() as { id: string };
+    const task = (await taskResponse.json()) as { id: string };
     const completed = await request('/v1/tasks/complete', 'POST', { id: task.id });
-    expect((await completed.json() as { status: string }).status).toBe('done');
+    expect(((await completed.json()) as { status: string }).status).toBe('done');
     const summary = await request('/v1/summary', 'POST');
-    expect((await summary.json() as { body: string }).body).toContain('Write API test');
+    expect(((await summary.json()) as { body: string }).body).toContain('Write API test');
     expect((await request('/v1/runs')).status).toBe(200);
     expect((await request('/v1/sessions/open', 'POST', { id: session.id })).status).toBe(200);
     const updated = await request('/v1/records/update', 'POST', { id: task.id, title: 'Write broader API test' });
-    expect((await updated.json() as { title: string }).title).toBe('Write broader API test');
+    expect(((await updated.json()) as { title: string }).title).toBe('Write broader API test');
     expect((await request('/v1/sessions/finish', 'POST', { id: session.id })).status).toBe(200);
     expect((await request('/v1/sessions/open', 'POST', { id: session.id })).status).toBe(200);
-    expect((await request('/v1/links', 'POST', { kind: 'issue', url: 'https://github.com/example/repo/issues/42' })).status).toBe(201);
+    expect(
+      (await request('/v1/links', 'POST', { kind: 'issue', url: 'https://github.com/example/repo/issues/42' })).status,
+    ).toBe(201);
     const draftResponse = await request('/v1/handoff/draft');
-    const draft = await draftResponse.json() as { content: string };
+    const draft = (await draftResponse.json()) as { content: string };
     expect(draft.content).toContain('Issue #42');
     expect((await request('/v1/handoff', 'POST', { content: draft.content })).status).toBe(201);
     expect((await request('/v1/handoff')).status).toBe(200);
@@ -105,7 +121,8 @@ it('exposes session and task workflows through MCP', async () => {
     const taskText = task.content.find((item) => item.type === 'text');
     if (taskText?.type !== 'text') throw new Error('Task response missing');
     const parsed: unknown = JSON.parse(taskText.text);
-    if (typeof parsed !== 'object' || parsed === null || !('id' in parsed) || typeof parsed.id !== 'string') throw new Error('Task ID missing');
+    if (typeof parsed !== 'object' || parsed === null || !('id' in parsed) || typeof parsed.id !== 'string')
+      throw new Error('Task ID missing');
     const completed = await client.callTool({ name: 'threadport_complete_task', arguments: { id: parsed.id } });
     const completedText = completed.content.find((item) => item.type === 'text');
     if (completedText?.type !== 'text') throw new Error('Completed task response missing');

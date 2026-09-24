@@ -43,8 +43,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:agents:live": "tsx scripts/agent-smoke.ts",
-    "lint": "biome lint",
-    "check": "tsc -p tsconfig.json --noEmit && biome lint && node scripts/check-boundaries.mjs",
+    "lint": "biome check",
+    "format": "biome format --write",
+    "check": "tsc -p tsconfig.json --noEmit && biome check && node scripts/check-boundaries.mjs",
     "check:extension": "npm run check --workspace threadport-vscode",
     "build:extension": "npm run build && npm run build --workspace threadport-vscode",
     "package:extension": "npm run build:extension && npm run package --workspace threadport-vscode"

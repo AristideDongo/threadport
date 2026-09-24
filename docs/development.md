@@ -25,7 +25,8 @@ Run `npm run build` after code changes. To work directly with TypeScript, use `n
 ## Checks
 
 ```bash
-npm run check          # TypeScript, Biome lint, architecture boundaries
+npm run check          # TypeScript, Biome lint + format check, architecture boundaries
+npm run format         # apply Biome formatting
 npm test
 npm run test:coverage  # V8 coverage for src/, as run on Linux CI
 npm run build

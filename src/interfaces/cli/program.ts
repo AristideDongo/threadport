@@ -8,7 +8,11 @@ import { registerSessionCommands } from './commands/sessions.js';
 import { registerSystemCommands } from './commands/system.js';
 
 const cli = new Command();
-cli.name('threadport').description('Keep development sessions consistent across AI agents.').version(packageVersion).showHelpAfterError();
+cli
+  .name('threadport')
+  .description('Keep development sessions consistent across AI agents.')
+  .version(packageVersion)
+  .showHelpAfterError();
 registerSessionCommands(cli);
 registerRecordCommands(cli);
 registerContinuityCommands(cli);

@@ -16,7 +16,10 @@ export class SessionStatus implements Disposable {
     for (const folder of workspaceFolders()) {
       const active = this.projects.peek(folder)?.app.active();
       if (active) {
-        const run = this.projects.peek(folder)?.app.runs(active.id).findLast((candidate) => candidate.status === 'running');
+        const run = this.projects
+          .peek(folder)
+          ?.app.runs(active.id)
+          .findLast((candidate) => candidate.status === 'running');
         this.#item.text = run ? `$(loading~spin) ThreadPort: ${run.agentId}` : `$(hubot) ThreadPort: ${active.title}`;
         this.#item.tooltip = run ? `${folder.name} · ${active.id} · agent running` : `${folder.name} · ${active.id}`;
         return;

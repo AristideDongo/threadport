@@ -19,7 +19,9 @@ it('migrates a v1 database and searches structured records', () => {
   const path = join(dir, 'db.sqlite');
   try {
     const old = new DatabaseSync(path);
-    old.exec("CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL); CREATE TABLE decisions (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, title TEXT NOT NULL, rationale TEXT NOT NULL, created_at TEXT NOT NULL); INSERT INTO sessions VALUES ('s1','Legacy','active','2026-01-01','2026-01-01'); PRAGMA user_version=1;");
+    old.exec(
+      "CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL); CREATE TABLE decisions (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, title TEXT NOT NULL, rationale TEXT NOT NULL, created_at TEXT NOT NULL); INSERT INTO sessions VALUES ('s1','Legacy','active','2026-01-01','2026-01-01'); PRAGMA user_version=1;",
+    );
     old.close();
     const store = new SqliteStore(path);
     const app = new ThreadPort(store, { read: () => null }, dir);
@@ -27,17 +29,22 @@ it('migrates a v1 database and searches structured records', () => {
     expect(app.search('rotation')[0]?.title).toBe('Refresh rotation');
     expect(app.contextPack('minimal', []).tokens).toBeLessThanOrEqual(500);
     store.close();
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('creates isolated forks and compares their actual changes', () => {
   const dir = mkdtempSync(join(tmpdir(), 'threadport-fork-test-'));
   try {
     const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
-    git('init', '-q'); git('config', 'user.email', 'test@example.com'); git('config', 'user.name', 'Test');
+    git('init', '-q');
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
     writeFileSync(join(dir, '.gitignore'), '.threadport/\n');
     writeFileSync(join(dir, 'app.txt'), 'base\n');
-    git('add', '.'); git('commit', '-qm', 'base');
+    git('add', '.');
+    git('commit', '-qm', 'base');
     const store = new SqliteStore(join(dir, '.threadport', 'db.sqlite'));
     const app = new ThreadPort(store, new GitCliReader(), dir);
     app.newSession('Compare');
@@ -52,20 +59,48 @@ it('creates isolated forks and compares their actual changes', () => {
     expect(forks.diff(first.id)).toContain('new content');
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' }).trim()).toBe('');
     store.close();
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('normalizes provider event streams without storing raw JSON', () => {
   expect(interpretAgentEvent('codex', { type: 'thread.started', thread_id: 'abc' })?.body).toBe('abc');
-  expect(interpretAgentEvent('codex', { type: 'item.completed', item: { type: 'command_execution', command: 'npm test', aggregated_output: 'ok' } })?.kind).toBe('command');
+  expect(
+    interpretAgentEvent('codex', {
+      type: 'item.completed',
+      item: { type: 'command_execution', command: 'npm test', aggregated_output: 'ok' },
+    })?.kind,
+  ).toBe('command');
   expect(interpretAgentEvent('claude', { type: 'result', result: 'Done', is_error: false })?.body).toBe('Done');
-  expect(interpretAgentEvent('claude', { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test' } }] } })?.title).toBe('npm test');
-  expect(interpretAgentEvents('claude', { type: 'assistant', message: { content: [
-    { type: 'text', text: 'Tests pass' },
-    { type: 'tool_use', name: 'Bash', input: { command: 'npm test' } },
-  ] } }).map((event) => event.kind)).toEqual(['message', 'command']);
-  expect(interpretAgentEvents('claude', { type: 'result', result: 'Done', usage: { input_tokens: 12 } }).map((event) => event.kind)).toEqual(['message', 'usage']);
-  expect(interpretAgentEvent('codex', { type: 'item.completed', item: { type: 'file_change', changes: [{ path: 'src/main.ts', kind: 'update' }] } })?.body).toContain('src/main.ts');
+  expect(
+    interpretAgentEvent('claude', {
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test' } }] },
+    })?.title,
+  ).toBe('npm test');
+  expect(
+    interpretAgentEvents('claude', {
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'text', text: 'Tests pass' },
+          { type: 'tool_use', name: 'Bash', input: { command: 'npm test' } },
+        ],
+      },
+    }).map((event) => event.kind),
+  ).toEqual(['message', 'command']);
+  expect(
+    interpretAgentEvents('claude', { type: 'result', result: 'Done', usage: { input_tokens: 12 } }).map(
+      (event) => event.kind,
+    ),
+  ).toEqual(['message', 'usage']);
+  expect(
+    interpretAgentEvent('codex', {
+      type: 'item.completed',
+      item: { type: 'file_change', changes: [{ path: 'src/main.ts', kind: 'update' }] },
+    })?.body,
+  ).toContain('src/main.ts');
 });
 
 it('applies project configuration to privacy exclusions', () => {
@@ -76,23 +111,38 @@ it('applies project configuration to privacy exclusions', () => {
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ scripts: { check: 'tsc', test: 'vitest' } }));
     expect(verificationCommands(dir).map((item) => item.args[1])).toEqual(['check', 'test']);
     setDefaultMode(dir, 'deep');
-    writeFileSync(join(dir, '.threadport', 'config.json'), JSON.stringify({ context: { defaultMode: 'deep' }, privacy: { exclude: ['private/**'] }, verification: { commands: [{ command: 'cargo', args: ['test'] }] } }));
+    writeFileSync(
+      join(dir, '.threadport', 'config.json'),
+      JSON.stringify({
+        context: { defaultMode: 'deep' },
+        privacy: { exclude: ['private/**'] },
+        verification: { commands: [{ command: 'cargo', args: ['test'] }] },
+      }),
+    );
     expect(readConfig(dir).context.defaultMode).toBe('deep');
     expect(loadExcludes(dir)).toContain('private/**');
     expect(verificationCommands(dir)).toEqual([{ command: 'cargo', args: ['test'] }]);
-  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('reads renamed Git paths without splitting unusual filenames', () => {
   const dir = mkdtempSync(join(tmpdir(), 'threadport-git-path-'));
   try {
     const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
-    git('init', '-q'); git('config', 'user.email', 'test@example.com'); git('config', 'user.name', 'Test');
+    git('init', '-q');
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
     writeFileSync(join(dir, 'old name.txt'), 'base\n');
-    git('add', '.'); git('commit', '-qm', 'base');
+    git('add', '.');
+    git('commit', '-qm', 'base');
     git('mv', 'old name.txt', 'new name.txt');
     expect(new GitCliReader().read(dir)?.changedFiles).toEqual(['new name.txt']);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('exports and imports a session with remapped identifiers', () => {
@@ -113,29 +163,56 @@ it('exports and imports a session with remapped identifiers', () => {
     expect(target.search('SQLite', 10)[0]?.sessionId).toBe(imported.id);
     const legacy: unknown = { ...archive, formatVersion: 1 };
     expect(new SessionTransfer(target).import(legacy).id).not.toBe(imported.id);
-  } finally { source.close(); target.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    source.close();
+    target.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('scrubs stored history, filtered paths, and exported archives', () => {
   const dir = mkdtempSync(join(tmpdir(), 'threadport-privacy-'));
   const store = new SqliteStore(join(dir, 'db.sqlite'));
   try {
-    const app = new ThreadPort(store, { read: () => ({ branch: 'main', head: 'abc', changedFiles: ['.env', 'src/a.ts'], diff: '' }) }, dir, ['.env']);
+    const app = new ThreadPort(
+      store,
+      { read: () => ({ branch: 'main', head: 'abc', changedFiles: ['.env', 'src/a.ts'], diff: '' }) },
+      dir,
+      ['.env'],
+    );
     const session = app.newSession('Fix token=old-secret');
     expect(session.title).not.toContain('old-secret');
     app.decide('Use token=decision-secret', 'Rotate it');
     expect(JSON.stringify(app.events(session.id))).not.toContain('decision-secret');
     expect(() => app.addRecord('file', '.env')).toThrow('excluded');
     expect(app.snapshot().git.changedFiles).toEqual(['src/a.ts']);
-    store.addEvent({ id: 'legacy-event', sessionId: session.id, type: 'Legacy', message: 'password: old-value', createdAt: '2026-01-01' });
-    store.addRecord({ id: 'legacy-file', sessionId: session.id, runId: null, kind: 'file', title: '.env', body: 'secret', status: 'info', createdAt: '2026-01-01' });
+    store.addEvent({
+      id: 'legacy-event',
+      sessionId: session.id,
+      type: 'Legacy',
+      message: 'password: old-value',
+      createdAt: '2026-01-01',
+    });
+    store.addRecord({
+      id: 'legacy-file',
+      sessionId: session.id,
+      runId: null,
+      kind: 'file',
+      title: '.env',
+      body: 'secret',
+      status: 'info',
+      createdAt: '2026-01-01',
+    });
     const archive = new SessionTransfer(store, ['.env']).export(session.id);
     expect(JSON.stringify(archive)).not.toContain('old-value');
     expect(JSON.stringify(archive)).not.toContain('legacy-file');
     expect(app.scrub()).toMatchObject({ removed: 1 });
     expect(JSON.stringify(store.listEvents(session.id))).not.toContain('old-value');
     expect(store.search('legacy-file', 10)).toHaveLength(0);
-  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('renames, edits, finishes, and deletes a session without leaving search hits', () => {
@@ -156,5 +233,8 @@ it('renames, edits, finishes, and deletes a session without leaving search hits'
     app.deleteSession(session.id);
     expect(app.search('ReplacementIntent')).toHaveLength(0);
     expect(app.sessions()).toHaveLength(0);
-  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

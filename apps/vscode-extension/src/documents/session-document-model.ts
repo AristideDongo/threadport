@@ -9,7 +9,7 @@ export interface SessionDocumentEdit {
 }
 
 const editableHeadings = ['Objective', 'Agent', 'Next instruction', 'Add relevant file', 'Record decision'] as const;
-type EditableHeading = typeof editableHeadings[number];
+type EditableHeading = (typeof editableHeadings)[number];
 
 function section(content: string, heading: EditableHeading): string {
   const marker = `## ${heading}`;
@@ -63,13 +63,13 @@ export function parseSessionDocument(content: string): SessionDocumentEdit {
     add: {
       relevantFile: {
         path: singleLine(relevantFile.get('path') ?? '', 'Relevant file path', 500),
-        reason: bounded(relevantFile.get('reason') ?? '', 'Relevant file reason', 20_000)
+        reason: bounded(relevantFile.get('reason') ?? '', 'Relevant file reason', 20_000),
       },
       decision: {
         title: singleLine(decision.get('title') ?? '', 'Decision title', 200),
-        rationale: bounded(decision.get('rationale') ?? '', 'Decision rationale', 20_000)
-      }
-    }
+        rationale: bounded(decision.get('rationale') ?? '', 'Decision rationale', 20_000),
+      },
+    },
   };
 }
 

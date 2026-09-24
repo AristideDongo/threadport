@@ -6,17 +6,39 @@ import {
   workspace,
   type Event,
   type TreeDataProvider,
-  type WorkspaceFolder
+  type WorkspaceFolder,
 } from 'vscode';
 import type { Session } from '../../../../src/domain/model.js';
 import type { ProjectRuntimes } from '../bootstrap/project-runtimes.js';
 import type { NativeSessionSection } from '../documents/threadport-documents.js';
 
-export interface ProjectNode { readonly kind: 'project'; readonly folder: WorkspaceFolder }
-export interface SessionNode { readonly kind: 'session'; readonly folder: WorkspaceFolder; readonly session: Session }
-export interface DetailNode { readonly kind: 'detail'; readonly label: string; readonly description: string; readonly icon: string; readonly folder: WorkspaceFolder; readonly session: Session; readonly section: NativeSessionSection }
-export interface UninitializedNode { readonly kind: 'uninitialized'; readonly folder: WorkspaceFolder }
-interface MessageNode { readonly kind: 'message'; readonly label: string; readonly icon: string }
+export interface ProjectNode {
+  readonly kind: 'project';
+  readonly folder: WorkspaceFolder;
+}
+export interface SessionNode {
+  readonly kind: 'session';
+  readonly folder: WorkspaceFolder;
+  readonly session: Session;
+}
+export interface DetailNode {
+  readonly kind: 'detail';
+  readonly label: string;
+  readonly description: string;
+  readonly icon: string;
+  readonly folder: WorkspaceFolder;
+  readonly session: Session;
+  readonly section: NativeSessionSection;
+}
+export interface UninitializedNode {
+  readonly kind: 'uninitialized';
+  readonly folder: WorkspaceFolder;
+}
+interface MessageNode {
+  readonly kind: 'message';
+  readonly label: string;
+  readonly icon: string;
+}
 export type SessionsNode = ProjectNode | SessionNode | DetailNode | UninitializedNode | MessageNode;
 
 export class SessionsTree implements TreeDataProvider<SessionsNode> {
@@ -40,7 +62,13 @@ export class SessionsTree implements TreeDataProvider<SessionsNode> {
     if (node.kind === 'session') {
       const item = new TreeItem(node.session.title, TreeItemCollapsibleState.Collapsed);
       item.description = `${node.session.id} · ${node.session.status}`;
-      item.iconPath = new ThemeIcon(node.session.status === 'active' ? 'circle-filled' : node.session.status === 'done' ? 'pass-filled' : 'circle-outline');
+      item.iconPath = new ThemeIcon(
+        node.session.status === 'active'
+          ? 'circle-filled'
+          : node.session.status === 'done'
+            ? 'pass-filled'
+            : 'circle-outline',
+      );
       item.contextValue = 'threadport.session';
       item.command = { command: 'threadport.openSessionPage', title: 'View Session', arguments: [node] };
       return item;
@@ -65,7 +93,8 @@ export class SessionsTree implements TreeDataProvider<SessionsNode> {
   getChildren(node?: SessionsNode): SessionsNode[] {
     if (!node) {
       const folders = workspace.workspaceFolders ?? [];
-      if (folders.length === 0) return [{ kind: 'message', label: 'Open a project folder to start', icon: 'folder-opened' }];
+      if (folders.length === 0)
+        return [{ kind: 'message', label: 'Open a project folder to start', icon: 'folder-opened' }];
       return folders.map((folder) => ({ kind: 'project', folder }));
     }
     if (node.kind === 'project') {
@@ -82,12 +111,46 @@ export class SessionsTree implements TreeDataProvider<SessionsNode> {
       const records = runtime.app.records(node.session.id);
       const decisions = runtime.app.decisions(node.session.id);
       const lastRun = runs.at(-1);
-      const preferredAgent = records.findLast((record) => record.kind === 'note' && record.title === 'Initial agent')?.body;
+      const preferredAgent = records.findLast(
+        (record) => record.kind === 'note' && record.title === 'Initial agent',
+      )?.body;
       return [
-        { kind: 'detail', label: 'Agent', description: lastRun?.agentId ?? preferredAgent ?? 'None', icon: 'hubot', folder: node.folder, session: node.session, section: 'agent' },
-        { kind: 'detail', label: 'Relevant files', description: String(records.filter((record) => record.kind === 'file').length), icon: 'files', folder: node.folder, session: node.session, section: 'files' },
-        { kind: 'detail', label: 'Decisions', description: String(decisions.length), icon: 'lightbulb', folder: node.folder, session: node.session, section: 'decisions' },
-        { kind: 'detail', label: 'Runs', description: String(runs.length), icon: 'history', folder: node.folder, session: node.session, section: 'runs' }
+        {
+          kind: 'detail',
+          label: 'Agent',
+          description: lastRun?.agentId ?? preferredAgent ?? 'None',
+          icon: 'hubot',
+          folder: node.folder,
+          session: node.session,
+          section: 'agent',
+        },
+        {
+          kind: 'detail',
+          label: 'Relevant files',
+          description: String(records.filter((record) => record.kind === 'file').length),
+          icon: 'files',
+          folder: node.folder,
+          session: node.session,
+          section: 'files',
+        },
+        {
+          kind: 'detail',
+          label: 'Decisions',
+          description: String(decisions.length),
+          icon: 'lightbulb',
+          folder: node.folder,
+          session: node.session,
+          section: 'decisions',
+        },
+        {
+          kind: 'detail',
+          label: 'Runs',
+          description: String(runs.length),
+          icon: 'history',
+          folder: node.folder,
+          session: node.session,
+          section: 'runs',
+        },
       ];
     }
     return [];

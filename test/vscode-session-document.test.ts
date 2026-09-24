@@ -33,8 +33,8 @@ describe('VS Code native session documents', () => {
       nextInstruction: 'Fix the refresh-token race condition and run tests.',
       add: {
         relevantFile: { path: 'src/auth.ts', reason: 'Main service' },
-        decision: { title: 'Use Redis', rationale: 'Supports expiry' }
-      }
+        decision: { title: 'Use Redis', rationale: 'Supports expiry' },
+      },
     });
   });
 
@@ -46,6 +46,8 @@ describe('VS Code native session documents', () => {
 
   it('rejects missing sections and an empty objective', () => {
     expect(() => parseSessionDocument('# Incomplete')).toThrow('Missing "## Objective"');
-    expect(() => parseSessionDocument(document.replace('Implement authentication', ''))).toThrow('Objective cannot be empty');
+    expect(() => parseSessionDocument(document.replace('Implement authentication', ''))).toThrow(
+      'Objective cannot be empty',
+    );
   });
 });

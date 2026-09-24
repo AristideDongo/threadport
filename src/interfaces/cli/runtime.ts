@@ -48,12 +48,20 @@ export function project(root = cwd, create = false): { app: ThreadPort; store: S
 
 export function withProject(action: (app: ThreadPort) => void): void {
   const { app, store } = project();
-  try { action(app); } finally { store.close(); }
+  try {
+    action(app);
+  } finally {
+    store.close();
+  }
 }
 
 export async function withProjectAsync(action: (app: ThreadPort) => Promise<void>): Promise<void> {
   const { app, store } = project();
-  try { await action(app); } finally { store.close(); }
+  try {
+    await action(app);
+  } finally {
+    store.close();
+  }
 }
 
 export function requireActive(app: ThreadPort) {
@@ -63,5 +71,9 @@ export function requireActive(app: ThreadPort) {
 }
 
 export function contextMode(value: string) {
-  try { return assertMode(value); } catch (error: unknown) { throw new InvalidArgumentError(error instanceof Error ? error.message : String(error)); }
+  try {
+    return assertMode(value);
+  } catch (error: unknown) {
+    throw new InvalidArgumentError(error instanceof Error ? error.message : String(error));
+  }
 }

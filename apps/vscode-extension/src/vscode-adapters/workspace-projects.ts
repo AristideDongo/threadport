@@ -18,8 +18,7 @@ export async function selectWorkspaceFolder(placeHolder: string): Promise<Worksp
   const picks: FolderPick[] = folders.map((folder) => ({
     label: folder.name,
     description: folder.uri.fsPath,
-    folder
+    folder,
   }));
   return (await window.showQuickPick(picks, { placeHolder }))?.folder;
 }
-
