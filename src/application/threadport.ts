@@ -1,15 +1,44 @@
 import { randomUUID } from 'node:crypto';
-import { assertTitle, type AgentRun, type ContextMode, type RecordKind, type RecordStatus, type Session, type Snapshot, type WorkRecord } from '../domain/model.js';
+import {
+  assertTitle,
+  type AgentRun,
+  type ContextMode,
+  type RecordKind,
+  type RecordStatus,
+  type Session,
+  type Snapshot,
+  type WorkRecord,
+} from '../domain/model.js';
 import { buildContextPack, excluded, gitFingerprint, redact } from './context.js';
-import { githubWorkLink, parseHandoff, parseVerification, renderHandoff, type PrivacyAudit, type SavedHandoff, type VerificationCommand, type VerificationReport } from './continuity.js';
+import {
+  githubWorkLink,
+  parseHandoff,
+  parseVerification,
+  renderHandoff,
+  type PrivacyAudit,
+  type SavedHandoff,
+  type VerificationCommand,
+  type VerificationReport,
+} from './continuity.js';
 import type { AgentAdapter, AgentRunner, CommandExecutor, GitReader, SessionStore } from './ports.js';
 
 export class ThreadPort {
-  constructor(private readonly store: SessionStore, private readonly git: GitReader, private readonly cwd: string, private readonly patterns: readonly string[] = []) {}
+  constructor(
+    private readonly store: SessionStore,
+    private readonly git: GitReader,
+    private readonly cwd: string,
+    private readonly patterns: readonly string[] = [],
+  ) {}
 
-  recover(): number { return this.store.recoverRuns(new Date().toISOString()); }
-  sessions(): Session[] { return this.store.listSessions(); }
-  active(): Session | null { return this.store.getActiveSession(); }
+  recover(): number {
+    return this.store.recoverRuns(new Date().toISOString());
+  }
+  sessions(): Session[] {
+    return this.store.listSessions();
+  }
+  active(): Session | null {
+    return this.store.getActiveSession();
+  }
   session(id: string): Session {
     const session = this.store.getSession(id);
     if (!session) throw new Error(`Session not found: ${id}`);
@@ -17,7 +46,13 @@ export class ThreadPort {
   }
   newSession(title: string): Session {
     const now = new Date().toISOString();
-    const session: Session = { id: randomUUID().slice(0, 8), title: redact(assertTitle(title)), status: 'active', createdAt: now, updatedAt: now };
+    const session: Session = {
+      id: randomUUID().slice(0, 8),
+      title: redact(assertTitle(title)),
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    };
     this.store.transaction(() => {
       const previous = this.active();
       if (previous) this.store.updateSession({ ...previous, status: 'paused', updatedAt: now });
@@ -34,7 +69,8 @@ export class ThreadPort {
   }
   finish(id: string): Session {
     const session = this.session(id);
-    if (this.store.listRuns(id).some((run) => run.status === 'running')) throw new Error('Stop active agent runs before finishing this session.');
+    if (this.store.listRuns(id).some((run) => run.status === 'running'))
+      throw new Error('Stop active agent runs before finishing this session.');
     const updated: Session = { ...session, status: 'done', updatedAt: new Date().toISOString() };
     this.store.updateSession(updated);
     this.event(id, 'SessionFinished', id);
@@ -42,7 +78,8 @@ export class ThreadPort {
   }
   deleteSession(id: string): void {
     this.session(id);
-    if (this.store.listRuns(id).some((run) => run.status === 'running')) throw new Error('Stop active agent runs before deleting this session.');
+    if (this.store.listRuns(id).some((run) => run.status === 'running'))
+      throw new Error('Stop active agent runs before deleting this session.');
     if (this.store.listForks(id).length) throw new Error('Remove session forks before deleting this session.');
     this.store.deleteSession(id);
   }
@@ -50,23 +87,53 @@ export class ThreadPort {
     return this.store.transaction(() => {
       const session = this.session(id);
       const current = this.active();
-      if (current && current.id !== id) this.store.updateSession({ ...current, status: 'paused', updatedAt: new Date().toISOString() });
+      if (current && current.id !== id)
+        this.store.updateSession({ ...current, status: 'paused', updatedAt: new Date().toISOString() });
       const opened: Session = { ...session, status: 'active', updatedAt: new Date().toISOString() };
       this.store.updateSession(opened);
       this.event(id, 'SessionOpened', 'Session active');
       return opened;
     });
   }
-  events(id: string) { return this.store.listEvents(id); }
-  decisions(id: string) { return this.store.listDecisions(id); }
-  runs(id: string) { return this.store.listRuns(id); }
-  records(id: string): WorkRecord[] { return this.store.listRecords(id); }
-  search(query: string) { return this.store.search(query, 30); }
-  forks(id: string) { return this.store.listForks(id); }
-  addRecord(kind: RecordKind, title: string, body = '', status: RecordStatus = 'info', runId: string | null = null): WorkRecord {
+  events(id: string) {
+    return this.store.listEvents(id);
+  }
+  decisions(id: string) {
+    return this.store.listDecisions(id);
+  }
+  runs(id: string) {
+    return this.store.listRuns(id);
+  }
+  records(id: string): WorkRecord[] {
+    return this.store.listRecords(id);
+  }
+  search(query: string) {
+    return this.store.search(query, 30);
+  }
+  forks(id: string) {
+    return this.store.listForks(id);
+  }
+  addRecord(
+    kind: RecordKind,
+    title: string,
+    body = '',
+    status: RecordStatus = 'info',
+    runId: string | null = null,
+  ): WorkRecord {
     const session = this.requireActive();
-    if ((kind === 'file' || kind === 'artifact') && excluded(title, this.patterns)) throw new Error('This path is excluded by the project privacy policy.');
-    const record: WorkRecord = { id: randomUUID().slice(0, 8), sessionId: session.id, runId, kind, title: redact(assertTitle(title)), body: redact(body.trim().slice(0, 20000)), status, createdAt: new Date().toISOString(), forkId: this.forkId(session.id) };
+    if ((kind === 'file' || kind === 'artifact') && excluded(title, this.patterns))
+      throw new Error('This path is excluded by the project privacy policy.');
+    const record: WorkRecord = {
+      id: randomUUID().slice(0, 8),
+      sessionId: session.id,
+      runId,
+      kind,
+      title: redact(assertTitle(title)),
+      body: redact(body.trim().slice(0, 20000)),
+      status,
+      createdAt: new Date().toISOString(),
+      forkId: this.forkId(session.id),
+    };
     this.store.addRecord(record);
     this.event(session.id, `${kind[0]?.toUpperCase() ?? ''}${kind.slice(1)}Recorded`, record.id);
     return record;
@@ -74,8 +141,13 @@ export class ThreadPort {
   updateRecord(id: string, title: string, body?: string): WorkRecord {
     const item = this.store.getRecord(id);
     if (!item || item.sessionId !== this.requireActive().id) throw new Error(`Record not found: ${id}`);
-    if ((item.kind === 'file' || item.kind === 'artifact') && excluded(title, this.patterns)) throw new Error('This path is excluded by the project privacy policy.');
-    const updated = { ...item, title: redact(assertTitle(title)), body: body === undefined ? item.body : redact(body.trim().slice(0, 20_000)) };
+    if ((item.kind === 'file' || item.kind === 'artifact') && excluded(title, this.patterns))
+      throw new Error('This path is excluded by the project privacy policy.');
+    const updated = {
+      ...item,
+      title: redact(assertTitle(title)),
+      body: body === undefined ? item.body : redact(body.trim().slice(0, 20_000)),
+    };
     this.store.updateRecord(updated);
     this.event(item.sessionId, 'RecordUpdated', id);
     return updated;
@@ -86,34 +158,63 @@ export class ThreadPort {
     this.store.deleteRecord(id);
     this.event(item.sessionId, 'RecordDeleted', id);
   }
-  scrub(): { updated: number; removed: number } { return this.store.scrub(this.patterns); }
+  scrub(): { updated: number; removed: number } {
+    return this.store.scrub(this.patterns);
+  }
   privacyAudit(mode: ContextMode = 'standard'): PrivacyAudit {
     const session = this.requireActive();
-    const values = [session.title, ...this.events(session.id).map((item) => item.message),
+    const values = [
+      session.title,
+      ...this.events(session.id).map((item) => item.message),
       ...this.decisions(session.id).flatMap((item) => [item.title, item.rationale]),
-      ...this.records(session.id).flatMap((item) => [item.title, item.body])];
+      ...this.records(session.id).flatMap((item) => [item.title, item.body]),
+    ];
     const git = this.git.read(this.cwd);
-    const excludedReferences = this.records(session.id).filter((item) => (item.kind === 'file' || item.kind === 'artifact') && excluded(item.title, this.patterns)).length +
-      this.store.listSnapshots(session.id).flatMap((item) => item.git.changedFiles).filter((path) => excluded(path, this.patterns)).length +
+    const excludedReferences =
+      this.records(session.id).filter(
+        (item) => (item.kind === 'file' || item.kind === 'artifact') && excluded(item.title, this.patterns),
+      ).length +
+      this.store
+        .listSnapshots(session.id)
+        .flatMap((item) => item.git.changedFiles)
+        .filter((path) => excluded(path, this.patterns)).length +
       (git?.changedFiles.filter((path) => excluded(path, this.patterns)).length ?? 0);
     const redactedFields = values.filter((value) => redact(value) !== value).length;
-    return { redactedFields, excludedReferences, contextTokens: this.contextPack(mode, this.patterns).tokens,
-      warnings: ['Secret detection is heuristic. Review the context and export before sharing.', ...(git ? [] : ['Git state is unavailable; verification cannot be anchored to a commit.'])] };
+    return {
+      redactedFields,
+      excludedReferences,
+      contextTokens: this.contextPack(mode, this.patterns).tokens,
+      warnings: [
+        'Secret detection is heuristic. Review the context and export before sharing.',
+        ...(git ? [] : ['Git state is unavailable; verification cannot be anchored to a commit.']),
+        ...(git?.warning ? [git.warning] : []),
+      ],
+    };
   }
   linkWork(kind: 'issue' | 'pr', url: string): WorkRecord {
     const link = githubWorkLink(kind, url);
-    const existing = this.records(this.requireActive().id).find((item) => item.kind === 'link' && item.body === link.url);
+    const existing = this.records(this.requireActive().id).find(
+      (item) => item.kind === 'link' && item.body === link.url,
+    );
     return existing ?? this.addRecord('link', link.title, link.url);
   }
   latestVerification(): VerificationReport | null {
     const session = this.requireActive();
-    const record = this.records(session.id).filter((item) => item.kind === 'verification' && (item.forkId ?? null) === this.forkId(session.id)).at(-1);
+    const record = this.records(session.id)
+      .filter((item) => item.kind === 'verification' && (item.forkId ?? null) === this.forkId(session.id))
+      .at(-1);
     return record ? parseVerification(record.body) : null;
   }
   verificationStatus(): { report: VerificationReport; current: boolean } | null {
     const report = this.latestVerification();
     if (!report) return null;
-    return { report, current: report.passed && report.fingerprint !== null && report.fingerprint === gitFingerprint(this.git.read(this.cwd), this.patterns) };
+    return {
+      report,
+      current:
+        report.passed &&
+        report.fingerprint !== null &&
+        report.fingerprint === gitFingerprint(this.git.read(this.cwd), this.patterns),
+    };
   }
   async verify(commands: readonly VerificationCommand[], executor: CommandExecutor): Promise<VerificationReport> {
     this.requireActive();
@@ -123,35 +224,64 @@ export class ThreadPort {
     const startedAt = new Date().toISOString();
     const results: VerificationReport['results'] = [];
     for (const entry of commands) {
-      if (!entry.command.trim() || !Array.isArray(entry.args) || !entry.args.every((arg) => typeof arg === 'string')) throw new Error('Invalid verification command.');
+      if (!entry.command.trim() || !Array.isArray(entry.args) || !entry.args.every((arg) => typeof arg === 'string'))
+        throw new Error('Invalid verification command.');
       const started = Date.now();
       let outcome: { code: number; output: string };
-      try { outcome = await executor.execute(entry.command, entry.args, this.cwd); }
-      catch (error: unknown) { outcome = { code: 127, output: error instanceof Error ? error.message : String(error) }; }
+      try {
+        outcome = await executor.execute(entry.command, entry.args, this.cwd);
+      } catch (error: unknown) {
+        outcome = { code: 127, output: error instanceof Error ? error.message : String(error) };
+      }
       const title = [entry.command, ...entry.args].join(' ');
       const record = this.addRecord('test', title, outcome.output, outcome.code === 0 ? 'done' : 'failed');
-      results.push({ command: entry.command, args: entry.args, exitCode: outcome.code, durationMs: Date.now() - started, recordId: record.id });
+      results.push({
+        command: entry.command,
+        args: entry.args,
+        exitCode: outcome.code,
+        durationMs: Date.now() - started,
+        recordId: record.id,
+      });
     }
     const after = this.git.read(this.cwd);
     const unchanged = fingerprint !== null && fingerprint === gitFingerprint(after, this.patterns);
-    const report: VerificationReport = { version: 1, startedAt, endedAt: new Date().toISOString(), fingerprint, head: before?.head ?? null,
-      unchanged, passed: unchanged && results.every((item) => item.exitCode === 0), results };
+    const report: VerificationReport = {
+      version: 1,
+      startedAt,
+      endedAt: new Date().toISOString(),
+      fingerprint,
+      head: before?.head ?? null,
+      unchanged,
+      passed: unchanged && results.every((item) => item.exitCode === 0),
+      results,
+    };
     this.addRecord('verification', 'Verification report', JSON.stringify(report), report.passed ? 'done' : 'failed');
     return report;
   }
   handoffDraft(): string {
     const session = this.requireActive();
     const git = this.git.read(this.cwd);
-    return redact(renderHandoff({ session, git: git ? { ...git, changedFiles: git.changedFiles.filter((path) => !excluded(path, this.patterns)) } : null,
-      fingerprint: gitFingerprint(git, this.patterns), records: this.records(session.id).filter((item) => (item.forkId ?? null) === this.forkId(session.id)),
-      decisions: this.decisions(session.id), runs: this.runs(session.id), verification: this.latestVerification() }));
+    return redact(
+      renderHandoff({
+        session,
+        git: git ? { ...git, changedFiles: git.changedFiles.filter((path) => !excluded(path, this.patterns)) } : null,
+        fingerprint: gitFingerprint(git, this.patterns),
+        records: this.records(session.id).filter((item) => (item.forkId ?? null) === this.forkId(session.id)),
+        decisions: this.decisions(session.id),
+        runs: this.runs(session.id),
+        verification: this.latestVerification(),
+      }),
+    );
   }
   saveHandoff(content: string): WorkRecord {
     const trimmed = content.trim();
     if (!trimmed || trimmed.length > 18_000) throw new Error('Handoff must contain 1 to 18,000 characters.');
     const fingerprint = gitFingerprint(this.git.read(this.cwd), this.patterns);
     const draftFingerprint = /^Git fingerprint: ([a-f0-9]{16}|unavailable)$/m.exec(trimmed)?.[1];
-    if (draftFingerprint !== (fingerprint ?? 'unavailable')) throw new Error('Handoff draft is stale or missing its Git fingerprint. Generate a fresh draft after reviewing current changes.');
+    if (draftFingerprint !== (fingerprint ?? 'unavailable'))
+      throw new Error(
+        'Handoff draft is stale or missing its Git fingerprint. Generate a fresh draft after reviewing current changes.',
+      );
     const handoff: SavedHandoff = { version: 1, fingerprint, content: redact(trimmed) };
     return this.addRecord('handoff', 'Saved handoff', JSON.stringify(handoff));
   }
@@ -162,21 +292,30 @@ export class ThreadPort {
     if (index < 0) return null;
     const handoff = parseHandoff(records[index]?.body ?? '');
     if (!handoff) return null;
-    return { content: handoff.content, stale: handoff.fingerprint !== gitFingerprint(this.git.read(this.cwd), this.patterns) || records.slice(index + 1).some((item) => item.kind !== 'summary') };
+    return {
+      content: handoff.content,
+      stale:
+        handoff.fingerprint !== gitFingerprint(this.git.read(this.cwd), this.patterns) ||
+        records.slice(index + 1).some((item) => item.kind !== 'summary'),
+    };
   }
   addRunRecord(kind: RecordKind, title: string, body = '', status: RecordStatus = 'info'): WorkRecord {
     const session = this.requireActive();
-    const running = this.store.listRuns(session.id).findLast((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id));
+    const running = this.store
+      .listRuns(session.id)
+      .findLast((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id));
     return this.addRecord(kind, title, body, status, running?.id ?? null);
   }
   linkProviderSession(providerSessionId: string): void {
     const session = this.requireActive();
-    const running = this.store.listRuns(session.id).findLast((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id));
+    const running = this.store
+      .listRuns(session.id)
+      .findLast((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id));
     if (running && providerSessionId) this.store.setProviderSessionId(running.id, providerSessionId);
   }
   completeTask(id: string): WorkRecord {
     const task = this.store.getRecord(id);
-    if (!task || task.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Task not found: ${id}`);
+    if (task?.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Task not found: ${id}`);
     const done: WorkRecord = { ...task, status: 'done' };
     this.store.updateRecord(done);
     this.event(task.sessionId, 'TaskCompleted', task.id);
@@ -215,7 +354,13 @@ export class ThreadPort {
   }
   decide(title: string, rationale: string): void {
     const session = this.requireActive();
-    const decision = { id: randomUUID(), sessionId: session.id, title: redact(assertTitle(title)), rationale: redact(rationale), createdAt: new Date().toISOString() };
+    const decision = {
+      id: randomUUID(),
+      sessionId: session.id,
+      title: redact(assertTitle(title)),
+      rationale: redact(rationale),
+      createdAt: new Date().toISOString(),
+    };
     this.store.addDecision(decision);
     this.event(session.id, 'DecisionCreated', decision.id);
   }
@@ -223,7 +368,16 @@ export class ThreadPort {
     const session = this.requireActive();
     const git = this.git.read(this.cwd);
     if (!git) throw new Error('This directory is not a Git repository.');
-    const snapshot: Snapshot = { id: randomUUID(), sessionId: session.id, createdAt: new Date().toISOString(), git: { ...git, changedFiles: git.changedFiles.filter((path) => !excluded(path, this.patterns)).map(redact), diff: '' } };
+    const snapshot: Snapshot = {
+      id: randomUUID(),
+      sessionId: session.id,
+      createdAt: new Date().toISOString(),
+      git: {
+        ...git,
+        changedFiles: git.changedFiles.filter((path) => !excluded(path, this.patterns)).map(redact),
+        diff: '',
+      },
+    };
     this.store.addSnapshot(snapshot);
     this.event(session.id, 'ContextSnapshotCreated', `${git.changedFiles.length} changed file(s)`);
     return snapshot;
@@ -236,31 +390,80 @@ export class ThreadPort {
     const session = this.requireActive();
     return buildContextPack(this.store, session, this.git.read(this.cwd), mode, patterns, this.forkId(session.id));
   }
-  async run(adapter: AgentAdapter, runner: AgentRunner, contextFile: string, providerSessionId: string | null = null): Promise<AgentRun> {
+  async run(
+    adapter: AgentAdapter,
+    runner: AgentRunner,
+    contextFile: string,
+    providerSessionId: string | null = null,
+  ): Promise<AgentRun> {
     const session = this.requireActive();
-    if (this.store.listRuns(session.id).some((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id))) throw new Error('A run is already active in this environment.');
-    if (!runner.available(adapter.command)) throw new Error(`${adapter.label} was not found (${adapter.command}). Run "threadport doctor".`);
+    if (
+      this.store
+        .listRuns(session.id)
+        .some((item) => item.status === 'running' && (item.forkId ?? null) === this.forkId(session.id))
+    )
+      throw new Error('A run is already active in this environment.');
+    if (!runner.available(adapter.command))
+      throw new Error(`${adapter.label} was not found (${adapter.command}). Run "threadport doctor".`);
     const previous = this.store.listRuns(session.id).at(-1);
     this.snapshotIfGit();
-    if (previous && previous.agentId !== adapter.id) this.event(session.id, 'AgentSwitched', `${previous.agentId} → ${adapter.id}`);
-    const run: AgentRun = { id: randomUUID().slice(0, 8), sessionId: session.id, agentId: adapter.id, status: 'running', startedAt: new Date().toISOString(), endedAt: null, exitCode: null, ownerPid: process.pid, forkId: this.forkId(session.id), providerSessionId };
+    if (previous && previous.agentId !== adapter.id)
+      this.event(session.id, 'AgentSwitched', `${previous.agentId} → ${adapter.id}`);
+    const run: AgentRun = {
+      id: randomUUID().slice(0, 8),
+      sessionId: session.id,
+      agentId: adapter.id,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      exitCode: null,
+      ownerPid: process.pid,
+      forkId: this.forkId(session.id),
+      providerSessionId,
+    };
     this.store.addRun(run);
     this.event(session.id, 'AgentRunStarted', adapter.label);
     let code: number;
-    const args = providerSessionId && adapter.resumeArgs ? adapter.resumeArgs(providerSessionId, contextFile) : adapter.args(contextFile);
-    try { code = await runner.run(adapter.command, args, this.cwd); }
-    catch (error: unknown) { code = 1; this.event(session.id, 'ErrorDetected', error instanceof Error ? error.message : String(error)); }
-    const finished: AgentRun = { ...run, status: code === 0 ? 'completed' : code === 130 || code === 143 ? 'cancelled' : 'failed', endedAt: new Date().toISOString(), exitCode: code };
+    const args =
+      providerSessionId && adapter.resumeArgs
+        ? adapter.resumeArgs(providerSessionId, contextFile)
+        : adapter.args(contextFile);
+    try {
+      code = await runner.run(adapter.command, args, this.cwd);
+    } catch (error: unknown) {
+      code = 1;
+      this.event(session.id, 'ErrorDetected', error instanceof Error ? error.message : String(error));
+    }
+    const finished: AgentRun = {
+      ...run,
+      status: code === 0 ? 'completed' : code === 130 || code === 143 ? 'cancelled' : 'failed',
+      endedAt: new Date().toISOString(),
+      exitCode: code,
+    };
     this.store.updateRun(finished);
     this.snapshotIfGit();
     this.event(session.id, 'AgentRunStopped', `${adapter.label} (exit code ${code})`);
     this.summarize();
     return finished;
   }
-  private snapshotIfGit(): void { if (this.git.read(this.cwd)) this.snapshot(); }
-  private forkId(sessionId: string): string | null { return this.store.listForks(sessionId).find((fork) => fork.path === this.cwd)?.id ?? null; }
-  private requireActive(): Session { const session = this.active(); if (!session) throw new Error('No active session. Run "threadport new <objective>".'); return session; }
+  private snapshotIfGit(): void {
+    if (this.git.read(this.cwd)) this.snapshot();
+  }
+  private forkId(sessionId: string): string | null {
+    return this.store.listForks(sessionId).find((fork) => fork.path === this.cwd)?.id ?? null;
+  }
+  private requireActive(): Session {
+    const session = this.active();
+    if (!session) throw new Error('No active session. Run "threadport new <objective>".');
+    return session;
+  }
   private event(sessionId: string, type: string, message: string): void {
-    this.store.addEvent({ id: randomUUID(), sessionId, type, message: redact(message), createdAt: new Date().toISOString() });
+    this.store.addEvent({
+      id: randomUUID(),
+      sessionId,
+      type,
+      message: redact(message),
+      createdAt: new Date().toISOString(),
+    });
   }
 }

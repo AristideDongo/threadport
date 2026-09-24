@@ -10,7 +10,9 @@ it('creates a session and records an agent handoff', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'threadport-flow-'));
   const store = new SqliteStore(join(dir, 'db.sqlite'));
   try {
-    const git: GitReader = { read: () => ({ branch: 'main', head: 'abc', changedFiles: ['src/a.ts'], diff: '+change' }) };
+    const git: GitReader = {
+      read: () => ({ branch: 'main', head: 'abc', changedFiles: ['src/a.ts'], diff: '+change' }),
+    };
     const runner: AgentRunner = { available: () => true, run: async () => 0 };
     const app = new ThreadPort(store, git, dir);
     const session = app.newSession('Implement feature');
@@ -23,7 +25,10 @@ it('creates a session and records an agent handoff', async () => {
     expect(app.runs(session.id).at(-1)?.status).toBe('cancelled');
     expect(app.events(session.id).map((event) => event.type)).toContain('AgentSwitched');
     expect(store.latestSnapshot(session.id)?.git.diff).toBe('');
-  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('uses provider resume arguments when a session identifier is available', async () => {
@@ -33,13 +38,26 @@ it('uses provider resume arguments when a session identifier is available', asyn
     const app = new ThreadPort(store, { read: () => null }, dir);
     app.newSession('Resume interrupted work');
     let received: readonly string[] = [];
-    const runner: AgentRunner = { available: () => true, run: async (_command, args) => { received = args; return 0; } };
+    const runner: AgentRunner = {
+      available: () => true,
+      run: async (_command, args) => {
+        received = args;
+        return 0;
+      },
+    };
     const adapter: AgentAdapter = {
-      id: 'codex', label: 'Codex', command: 'codex', capabilities: [],
-      args: () => ['new'], resumeArgs: (id, context) => ['resume', id, context]
+      id: 'codex',
+      label: 'Codex',
+      command: 'codex',
+      capabilities: [],
+      args: () => ['new'],
+      resumeArgs: (id, context) => ['resume', id, context],
     };
     await app.run(adapter, runner, '/tmp/context.md', 'provider-42');
     expect(received).toEqual(['resume', 'provider-42', '/tmp/context.md']);
     expect(app.runs(app.active()?.id ?? '').at(-1)?.providerSessionId).toBe('provider-42');
-  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -44,35 +44,52 @@ async function selectSession(projects: ProjectRuntimes): Promise<SessionNode | u
   return pick ? { kind: 'session', folder: pick.folder, session: pick.session } : undefined;
 }
 
-export function registerCommands(projects: ProjectRuntimes, tree: SessionsTree, status: SessionStatus, documents: ThreadPortDocuments): readonly Disposable[] {
-  const initialize = commands.registerCommand('threadport.initializeProject', (argument?: ProjectArgument) => safely(async () => {
-    const folder = argument?.folder ?? await selectWorkspaceFolder('Select a project to initialize');
-    if (!folder) return;
-    const alreadyInitialized = projects.isInitialized(folder);
-    projects.get(folder, true);
-    refresh(tree, status);
-    documents.refresh();
-    await window.showInformationMessage(alreadyInitialized ? `${folder.name} is already initialized.` : `ThreadPort initialized for ${folder.name}.`);
-  }));
+export function registerCommands(
+  projects: ProjectRuntimes,
+  tree: SessionsTree,
+  status: SessionStatus,
+  documents: ThreadPortDocuments,
+): readonly Disposable[] {
+  const initialize = commands.registerCommand('threadport.initializeProject', (argument?: ProjectArgument) =>
+    safely(async () => {
+      const folder = argument?.folder ?? (await selectWorkspaceFolder('Select a project to initialize'));
+      if (!folder) return;
+      const alreadyInitialized = projects.isInitialized(folder);
+      projects.get(folder, true);
+      refresh(tree, status);
+      documents.refresh();
+      await window.showInformationMessage(
+        alreadyInitialized ? `${folder.name} is already initialized.` : `ThreadPort initialized for ${folder.name}.`,
+      );
+    }),
+  );
 
   const create = commands.registerCommand('threadport.newSession', () => safely(() => documents.openNewSession()));
 
-  const openPage = commands.registerCommand('threadport.openSessionPage', (node?: SessionNode | DetailNode) => safely(async () => {
-    const selected = node ?? await selectSession(projects);
-    if (!selected) return;
-    await documents.open(selected.folder, selected.session.id, selected.kind === 'detail' ? selected.section : 'overview');
-  }));
+  const openPage = commands.registerCommand('threadport.openSessionPage', (node?: SessionNode | DetailNode) =>
+    safely(async () => {
+      const selected = node ?? (await selectSession(projects));
+      if (!selected) return;
+      await documents.open(
+        selected.folder,
+        selected.session.id,
+        selected.kind === 'detail' ? selected.section : 'overview',
+      );
+    }),
+  );
 
-  const open = commands.registerCommand('threadport.openSession', (node?: SessionNode) => safely(async () => {
-    let selected = node;
-    if (!selected) selected = await selectSession(projects);
-    if (!selected) return;
-    const runtime = projects.get(selected.folder);
-    if (!runtime) throw new Error('The selected project is not initialized.');
-    runtime.app.open(selected.session.id);
-    refresh(tree, status);
-    await documents.open(selected.folder, selected.session.id, 'overview');
-  }));
+  const open = commands.registerCommand('threadport.openSession', (node?: SessionNode) =>
+    safely(async () => {
+      let selected = node;
+      if (!selected) selected = await selectSession(projects);
+      if (!selected) return;
+      const runtime = projects.get(selected.folder);
+      if (!runtime) throw new Error('The selected project is not initialized.');
+      runtime.app.open(selected.session.id);
+      refresh(tree, status);
+      await documents.open(selected.folder, selected.session.id, 'overview');
+    }),
+  );
 
   const refreshCommand = commands.registerCommand('threadport.refresh', () => {
     refresh(tree, status);

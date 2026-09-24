@@ -11,12 +11,19 @@ it('uses the installed CLI workflow for verification, linked work, review, and p
   const dir = mkdtempSync(join(tmpdir(), 'threadport-cli-continuity-'));
   try {
     const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
-    git('init', '-q'); git('config', 'user.email', 'test@example.com'); git('config', 'user.name', 'Test');
+    git('init', '-q');
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
     writeFileSync(join(dir, '.gitignore'), '.threadport/\n');
     writeFileSync(join(dir, 'app.txt'), 'base\n');
-    git('add', '.'); git('commit', '-qm', 'base');
+    git('add', '.');
+    git('commit', '-qm', 'base');
     const run = (...args: string[]) => {
-      const result = spawnSync(process.execPath, ['--import', loader, cli, ...args], { cwd: dir, encoding: 'utf8', timeout: 20_000 });
+      const result = spawnSync(process.execPath, ['--import', loader, cli, ...args], {
+        cwd: dir,
+        encoding: 'utf8',
+        timeout: 20_000,
+      });
       if (result.status !== 0) throw new Error(`${args.join(' ')}: ${result.stderr || result.stdout}`);
       return result.stdout;
     };
@@ -29,7 +36,12 @@ it('uses the installed CLI workflow for verification, linked work, review, and p
     expect(run('handoff', 'show')).toContain('Issue #42');
     expect(run('privacy', 'audit')).toContain('Excluded references: 0');
     writeFileSync(join(dir, 'app.txt'), 'changed\n');
-    const stale = spawnSync(process.execPath, ['--import', loader, cli, 'handoff', 'show'], { cwd: dir, encoding: 'utf8' });
+    const stale = spawnSync(process.execPath, ['--import', loader, cli, 'handoff', 'show'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
     expect(stale.stderr).toContain('stale');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }, 60_000);

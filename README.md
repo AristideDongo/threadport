@@ -65,7 +65,7 @@ Use `threadport doctor` to see installed agent versions. After upgrading an agen
 
 | Command | Purpose |
 | --- | --- |
-| `init` | Initialize `.threadport/threadport.sqlite` in the current directory. |
+| `init` | Initialize `.threadport/threadport.sqlite` in the current directory. Other commands also work from any subdirectory of the project. |
 | `new "objective"`, `sessions`, `open <id>`, `resume <id>` | Create, list, and reactivate sessions. |
 | `rename <id> "title"`, `finish <id>`, `delete <id>` | Rename, finish, or permanently delete a session. |
 | `status`, `timeline`, `snapshot` | Show the current state, events, and Git metadata. |
@@ -196,11 +196,11 @@ Create a JSON manifest and install it with `threadport plugin add ./agent.json`:
 }
 ```
 
-The manifest is copied to `.threadport/plugins/`; `threadport plugin list` shows installed agents. This extension point supports **CLI agents**. External storage, export, and hook plugins are not yet available.
+The manifest is copied to `.threadport/plugins/` and trusted for your user account; `threadport plugin list` shows installed agents. ThreadPort refuses to run a manifest it finds in the project without that step, for example one that came with a cloned repository, and `doctor` does not execute it. Review the manifest, then run `threadport plugin trust <id>`. Trust is stored in `~/.threadport/trusted-agents.json` (or `$THREADPORT_HOME`) and is revoked when the manifest changes. This extension point supports **CLI agents**. External storage, export, and hook plugins are not yet available.
 
 ## Storage and privacy
 
-The database, agent manifests, and worktrees live under `.threadport/` in the project. `init` does not edit the project's `.gitignore`; add `.threadport/` there to avoid committing local data.
+The database, agent manifests, and worktrees live under `.threadport/` in the project. ThreadPort writes `.threadport/.gitignore` so Git ignores this local data; it does not edit the project's own `.gitignore`.
 
 Stored snapshots contain the branch, commit, and changed file paths, **not the diff contents**. A diff may appear in `deep` or `full` context and in `compare --diff`. Default exclusions cover `.env`, `.env.*`, `*.pem`, `*.key`, `credentials.json`, `secrets/**`, and `.threadport/**`. Add one pattern per line to `.threadportignore`:
 
@@ -209,7 +209,7 @@ private/**
 *.pem
 ```
 
-ThreadPort filters excluded file references from new snapshots, hooks, and session archives. It redacts several common secret formats before storing notes and events or sending a context pack; detection is heuristic. `threadport privacy audit` counts fields that still match the redaction rules and excluded references without printing their values. Review the context and an export file before sharing. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
+ThreadPort filters excluded file references from new snapshots, hooks, and session archives. It redacts common secret formats (OpenAI/Anthropic, GitHub, GitLab, npm, Stripe, AWS, Google, and Slack keys, JWTs, Bearer headers, URL credentials, private keys, and `token=`/`password:` assignments) before storing notes and events or sending a context pack; detection is heuristic. `threadport privacy audit` counts fields that still match the redaction rules and excluded references without printing their values. Review the context and an export file before sharing. Launched agents apply their own data access rules. The API requires a token and stays local; a connected MCP client can read context and add session information.
 
 ## Contributing
 

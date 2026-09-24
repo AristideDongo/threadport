@@ -1,4 +1,14 @@
-import type { AgentRun, Decision, Fork, GitState, SearchHit, Session, Snapshot, TimelineEvent, WorkRecord } from '../domain/model.js';
+import type {
+  AgentRun,
+  Decision,
+  Fork,
+  GitState,
+  SearchHit,
+  Session,
+  Snapshot,
+  TimelineEvent,
+  WorkRecord,
+} from '../domain/model.js';
 
 export interface SessionStore {
   transaction<T>(work: () => T): T;
@@ -52,5 +62,10 @@ export interface AgentRunner {
   run(command: string, args: string[], cwd: string): Promise<number>;
 }
 
-export interface CommandResult { code: number; output: string; }
-export interface CommandExecutor { execute(command: string, args: string[], cwd: string): Promise<CommandResult>; }
+export interface CommandResult {
+  code: number;
+  output: string;
+}
+export interface CommandExecutor {
+  execute(command: string, args: string[], cwd: string): Promise<CommandResult>;
+}

@@ -33,7 +33,7 @@ export function activate(context: ExtensionContext): void {
     documents,
     workspaceChanges,
     ...registerCommands(projects, tree, status, documents),
-    { dispose: () => projects.dispose() }
+    { dispose: () => projects.dispose() },
   );
 }
 

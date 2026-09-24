@@ -1,7 +1,21 @@
 export type SessionStatus = 'active' | 'paused' | 'done';
 export type RunStatus = 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled';
 export type ContextMode = 'minimal' | 'standard' | 'deep' | 'full';
-export type RecordKind = 'note' | 'task' | 'error' | 'command' | 'test' | 'summary' | 'memory' | 'usage' | 'file' | 'artifact' | 'constraint' | 'verification' | 'handoff' | 'link';
+export type RecordKind =
+  | 'note'
+  | 'task'
+  | 'error'
+  | 'command'
+  | 'test'
+  | 'summary'
+  | 'memory'
+  | 'usage'
+  | 'file'
+  | 'artifact'
+  | 'constraint'
+  | 'verification'
+  | 'handoff'
+  | 'link';
 export type RecordStatus = 'open' | 'done' | 'failed' | 'info';
 
 export interface WorkRecord {
@@ -76,6 +90,8 @@ export interface GitState {
   head: string | null;
   changedFiles: string[];
   diff: string;
+  /** Set when Git output was too large to read completely; the state cannot anchor verification. */
+  warning?: string;
 }
 
 export interface Snapshot {

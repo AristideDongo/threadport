@@ -23,17 +23,20 @@ export class VSCodeTerminalAgentRunner implements AgentRunner, Disposable {
       cwd,
       shellPath: command,
       shellArgs: args,
-      isTransient: false
+      isTransient: false,
     });
     let stopped = false;
-    let requestStop = (): void => { stopped = true; terminal.dispose(); };
+    let requestStop = (): void => {
+      stopped = true;
+      terminal.dispose();
+    };
     const completion = new Promise<number>((resolve) => {
       const subscription = window.onDidCloseTerminal((closed) => {
         if (closed !== terminal) return;
         subscription.dispose();
         this.#runs.delete(cwd);
         requestStop = () => undefined;
-        resolve(stopped ? 130 : closed.exitStatus?.code ?? 1);
+        resolve(stopped ? 130 : (closed.exitStatus?.code ?? 1));
       });
     });
     this.#runs.set(cwd, { terminal, completion, requestStop: () => requestStop() });
