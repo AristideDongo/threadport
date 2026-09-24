@@ -126,18 +126,23 @@ function setupMenu() {
 /* GitHub stars and the latest npm version, cached for the tab so navigation does not refetch. */
 let stars = null;
 
+/** 29300 → "29.3k" in English, "29,3k" in French; below 1,000 the exact number. */
 function compact(value) {
-  return new Intl.NumberFormat(language, { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  if (value < 1000) return value.toLocaleString(language);
+  const thousands = new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(Math.floor(value / 100) / 10);
+  return `${thousands}k`;
 }
 
 function renderStars() {
-  for (const element of document.querySelectorAll('[data-stars]')) {
-    element.hidden = stars === null;
-    if (stars !== null) {
-      element.textContent = compact(stars);
-      element.setAttribute('aria-label', t('stars.count').replace('{0}', String(stars)));
-    }
-  }
+  for (const element of document.querySelectorAll('[data-stars]'))
+    element.textContent = stars === null ? 'GitHub' : compact(stars);
+  for (const link of document.querySelectorAll('[data-stars-link]'))
+    link.setAttribute(
+      'aria-label',
+      stars === null
+        ? t('stars.link')
+        : `${t('stars.link')}, ${t('stars.count').replace('{0}', stars.toLocaleString(language))}`,
+    );
 }
 
 async function cachedJson(key, url, pick) {
