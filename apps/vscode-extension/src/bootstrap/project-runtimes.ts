@@ -1,20 +1,28 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { WorkspaceFolder } from 'vscode';
+import { workspace, type WorkspaceFolder } from 'vscode';
 import { ThreadPort } from '../../../../src/application/threadport.js';
+import type { ContextMode } from '../../../../src/domain/model.js';
+import { readConfig } from '../../../../src/infrastructure/config.js';
 import { GitCliReader } from '../../../../src/infrastructure/git.js';
 import { loadExcludes } from '../../../../src/infrastructure/privacy.js';
-import { ensureProjectDir } from '../../../../src/infrastructure/project.js';
+import { databaseFileName, ensureProjectDir, projectDirName } from '../../../../src/infrastructure/project.js';
 import { SqliteStore } from '../../../../src/infrastructure/sqlite-store.js';
+import { log } from '../logging.js';
+import { CachingGitReader } from '../support/caching-git-reader.js';
+import { resolveContextMode } from '../support/context-mode.js';
 
 export interface ProjectRuntime {
   readonly folder: WorkspaceFolder;
+  readonly root: string;
   readonly app: ThreadPort;
   readonly store: SqliteStore;
 }
 
 export class ProjectRuntimes {
   readonly #projects = new Map<string, ProjectRuntime>();
+  /** Shared by every project and by the documents, so a refresh burst runs Git once per folder. */
+  readonly git = new CachingGitReader(new GitCliReader());
 
   isInitialized(folder: WorkspaceFolder): boolean {
     return existsSync(this.databasePath(folder));
@@ -32,14 +40,29 @@ export class ProjectRuntimes {
     const root = this.workspacePath(folder);
     const database = this.databasePath(folder);
     if (!existsSync(database) && !create) return null;
-    if (create || existsSync(database)) ensureProjectDir(root);
+    ensureProjectDir(root);
 
     const store = new SqliteStore(database);
-    const app = new ThreadPort(store, new GitCliReader(), root, loadExcludes(root));
-    app.recover();
-    const runtime = { folder, app, store };
+    const app = new ThreadPort(store, this.git, root, loadExcludes(root));
+    const recovered = app.recover();
+    if (recovered) log().info(`${folder.name}: recovered ${recovered} interrupted run(s).`);
+    const runtime = { folder, root, app, store };
     this.#projects.set(key, runtime);
+    log().info(`${folder.name}: opened ${database}`);
     return runtime;
+  }
+
+  /** Context detail level: the `threadport.context.mode` setting when set, else the project default. */
+  contextMode(folder: WorkspaceFolder): ContextMode {
+    const setting = workspace.getConfiguration('threadport', folder.uri).inspect<string>('context.mode');
+    return resolveContextMode(setting, readConfig(this.workspacePath(folder)).context.defaultMode);
+  }
+
+  /** Redacted context pack for the active session of a project. */
+  context(folder: WorkspaceFolder): string {
+    const runtime = this.get(folder);
+    if (!runtime) throw new Error('This project is not initialized.');
+    return runtime.app.context(this.contextMode(folder), loadExcludes(runtime.root));
   }
 
   prune(folders: readonly WorkspaceFolder[]): void {
@@ -57,8 +80,12 @@ export class ProjectRuntimes {
     this.#projects.clear();
   }
 
+  projectDir(folder: WorkspaceFolder): string {
+    return join(this.workspacePath(folder), projectDirName);
+  }
+
   private databasePath(folder: WorkspaceFolder): string {
-    return join(this.workspacePath(folder), '.threadport', 'threadport.sqlite');
+    return join(this.projectDir(folder), databaseFileName);
   }
 
   private workspacePath(folder: WorkspaceFolder): string {

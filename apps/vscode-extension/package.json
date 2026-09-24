@@ -1,8 +1,8 @@
 {
   "name": "threadport-vscode",
-  "displayName": "ThreadPort",
-  "description": "Keep one continuous development session across AI coding agents.",
-  "version": "0.3.0",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.4.0",
   "private": true,
   "license": "MIT",
   "publisher": "aristideghost",
@@ -21,74 +21,359 @@
   },
   "pricing": "Free",
   "qna": "marketplace",
-  "extensionKind": ["workspace"],
+  "extensionKind": [
+    "workspace"
+  ],
   "engines": {
     "vscode": "^1.105.0"
   },
-  "categories": ["Other", "Machine Learning"],
-  "keywords": ["AI", "agents", "Claude", "Codex", "developer tools", "context"],
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "AI",
+    "agents",
+    "Claude",
+    "Codex",
+    "developer tools",
+    "context"
+  ],
   "main": "./dist/extension.js",
-  "activationEvents": ["onFileSystem:threadport"],
-  "files": ["dist/extension.js", "media/", "README.md", "CHANGELOG.md", "SUPPORT.md", "LICENSE"],
+  "activationEvents": [
+    "onFileSystem:threadport",
+    "workspaceContains:.threadport/threadport.sqlite"
+  ],
+  "files": [
+    "dist/extension.js",
+    "dist/mcp-server.js",
+    "media/",
+    "l10n/",
+    "package.nls.json",
+    "package.nls.*.json",
+    "README.md",
+    "CHANGELOG.md",
+    "SUPPORT.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "node esbuild.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "package": "vsce package --no-dependencies --out dist/threadport-vscode.vsix",
-    "publish:marketplace": "vsce publish --packagePath dist/threadport-vscode.vsix"
+    "publish:marketplace": "vsce publish --packagePath dist/threadport-vscode.vsix",
+    "test:integration": "node test/run-integration.mjs"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.6.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.0"
   },
   "contributes": {
     "commands": [
-      { "command": "threadport.initializeProject", "title": "Initialize Project", "category": "ThreadPort", "icon": "$(database)" },
-      { "command": "threadport.newSession", "title": "New Session", "category": "ThreadPort", "icon": "$(add)" },
-      { "command": "threadport.openSessionPage", "title": "View Session", "category": "ThreadPort" },
-      { "command": "threadport.openSession", "title": "Open Session", "category": "ThreadPort" },
-      { "command": "threadport.document.runInstruction", "title": "Run Instruction", "category": "ThreadPort", "icon": "$(play)" },
-      { "command": "threadport.document.stopAgent", "title": "Stop Agent", "category": "ThreadPort", "icon": "$(debug-stop)" },
-      { "command": "threadport.document.resume", "title": "Resume Interrupted Work", "category": "ThreadPort", "icon": "$(debug-rerun)" },
-      { "command": "threadport.document.previewContext", "title": "Preview Context", "category": "ThreadPort", "icon": "$(preview)" },
-      { "command": "threadport.document.verify", "title": "Verify Work", "category": "ThreadPort", "icon": "$(beaker)" },
-      { "command": "threadport.document.reviewChanges", "title": "Review Changes", "category": "ThreadPort", "icon": "$(diff)" },
-      { "command": "threadport.addActiveFile", "title": "Add File to Context", "category": "ThreadPort", "icon": "$(pinned)" },
-      { "command": "threadport.addSelectionToContext", "title": "Add Selection to Context", "category": "ThreadPort" },
-      { "command": "threadport.refresh", "title": "Refresh", "category": "ThreadPort", "icon": "$(refresh)" }
+      {
+        "command": "threadport.initializeProject",
+        "title": "%command.initializeProject%",
+        "category": "ThreadPort",
+        "icon": "$(database)"
+      },
+      {
+        "command": "threadport.newSession",
+        "title": "%command.newSession%",
+        "category": "ThreadPort",
+        "icon": "$(add)"
+      },
+      {
+        "command": "threadport.openSessionPage",
+        "title": "%command.openSessionPage%",
+        "category": "ThreadPort"
+      },
+      {
+        "command": "threadport.openSession",
+        "title": "%command.openSession%",
+        "category": "ThreadPort",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "threadport.renameSession",
+        "title": "%command.renameSession%",
+        "category": "ThreadPort",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "threadport.finishSession",
+        "title": "%command.finishSession%",
+        "category": "ThreadPort",
+        "icon": "$(pass)"
+      },
+      {
+        "command": "threadport.deleteSession",
+        "title": "%command.deleteSession%",
+        "category": "ThreadPort",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "threadport.search",
+        "title": "%command.search%",
+        "category": "ThreadPort",
+        "icon": "$(search)"
+      },
+      {
+        "command": "threadport.draftHandoff",
+        "title": "%command.draftHandoff%",
+        "category": "ThreadPort",
+        "icon": "$(note)"
+      },
+      {
+        "command": "threadport.linkWork",
+        "title": "%command.linkWork%",
+        "category": "ThreadPort",
+        "icon": "$(link)"
+      },
+      {
+        "command": "threadport.privacyAudit",
+        "title": "%command.privacyAudit%",
+        "category": "ThreadPort",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "threadport.showMenu",
+        "title": "%command.showMenu%",
+        "category": "ThreadPort"
+      },
+      {
+        "command": "threadport.showLogs",
+        "title": "%command.showLogs%",
+        "category": "ThreadPort",
+        "icon": "$(output)"
+      },
+      {
+        "command": "threadport.document.runInstruction",
+        "title": "%command.runInstruction%",
+        "category": "ThreadPort",
+        "icon": "$(play)"
+      },
+      {
+        "command": "threadport.document.stopAgent",
+        "title": "%command.stopAgent%",
+        "category": "ThreadPort",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "threadport.document.resume",
+        "title": "%command.resume%",
+        "category": "ThreadPort",
+        "icon": "$(debug-rerun)"
+      },
+      {
+        "command": "threadport.document.previewContext",
+        "title": "%command.previewContext%",
+        "category": "ThreadPort",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "threadport.document.verify",
+        "title": "%command.verify%",
+        "category": "ThreadPort",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "threadport.document.reviewChanges",
+        "title": "%command.reviewChanges%",
+        "category": "ThreadPort",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "threadport.document.switchAgent",
+        "title": "%command.switchAgent%",
+        "category": "ThreadPort",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "threadport.document.activate",
+        "title": "%command.activate%",
+        "category": "ThreadPort",
+        "icon": "$(check)"
+      },
+      {
+        "command": "threadport.addActiveFile",
+        "title": "%command.addActiveFile%",
+        "category": "ThreadPort",
+        "icon": "$(pinned)"
+      },
+      {
+        "command": "threadport.addSelectionToContext",
+        "title": "%command.addSelectionToContext%",
+        "category": "ThreadPort"
+      },
+      {
+        "command": "threadport.refresh",
+        "title": "%command.refresh%",
+        "category": "ThreadPort",
+        "icon": "$(refresh)"
+      }
     ],
     "viewsContainers": {
       "activitybar": [
-        { "id": "threadport", "title": "ThreadPort", "icon": "media/threadport.svg" }
+        {
+          "id": "threadport",
+          "title": "ThreadPort",
+          "icon": "media/threadport.svg"
+        }
       ]
     },
     "views": {
       "threadport": [
-        { "id": "threadport.sessions", "name": "Sessions", "icon": "media/threadport.svg" }
+        {
+          "id": "threadport.sessions",
+          "name": "%view.sessions%",
+          "icon": "media/threadport.svg"
+        }
       ]
     },
     "viewsWelcome": [
       {
         "view": "threadport.sessions",
-        "contents": "Create a persistent development session that can move between AI agents.\n[New Session](command:threadport.newSession)"
+        "contents": "%view.sessions.welcome%"
       }
     ],
     "menus": {
       "view/title": [
-        { "command": "threadport.newSession", "when": "view == threadport.sessions", "group": "navigation@1" },
-        { "command": "threadport.refresh", "when": "view == threadport.sessions", "group": "navigation@2" }
+        {
+          "command": "threadport.newSession",
+          "when": "view == threadport.sessions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "threadport.search",
+          "when": "view == threadport.sessions",
+          "group": "navigation@2"
+        },
+        {
+          "command": "threadport.refresh",
+          "when": "view == threadport.sessions",
+          "group": "navigation@3"
+        },
+        {
+          "command": "threadport.draftHandoff",
+          "when": "view == threadport.sessions",
+          "group": "1_session@1"
+        },
+        {
+          "command": "threadport.linkWork",
+          "when": "view == threadport.sessions",
+          "group": "1_session@2"
+        },
+        {
+          "command": "threadport.privacyAudit",
+          "when": "view == threadport.sessions",
+          "group": "1_session@3"
+        },
+        {
+          "command": "threadport.showLogs",
+          "when": "view == threadport.sessions",
+          "group": "9_help@1"
+        }
       ],
       "view/item/context": [
-        { "command": "threadport.openSession", "when": "view == threadport.sessions && viewItem == threadport.session", "group": "inline@1" },
-        { "command": "threadport.initializeProject", "when": "view == threadport.sessions && viewItem == threadport.uninitialized", "group": "inline@1" }
+        {
+          "command": "threadport.openSession",
+          "when": "view == threadport.sessions && viewItem =~ /^threadport\\.session\\./",
+          "group": "inline@1"
+        },
+        {
+          "command": "threadport.initializeProject",
+          "when": "view == threadport.sessions && viewItem == threadport.uninitialized",
+          "group": "inline@1"
+        },
+        {
+          "command": "threadport.openSession",
+          "when": "view == threadport.sessions && viewItem =~ /^threadport\\.session\\./",
+          "group": "1_open@1"
+        },
+        {
+          "command": "threadport.renameSession",
+          "when": "view == threadport.sessions && viewItem =~ /^threadport\\.session\\./",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "threadport.finishSession",
+          "when": "view == threadport.sessions && viewItem =~ /^threadport\\.session\\.(active|paused)$/",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "threadport.deleteSession",
+          "when": "view == threadport.sessions && viewItem =~ /^threadport\\.session\\./",
+          "group": "3_danger@1"
+        }
       ],
       "explorer/context": [
-        { "command": "threadport.addActiveFile", "when": "resourceScheme == file", "group": "threadport@1" }
+        {
+          "command": "threadport.addActiveFile",
+          "when": "resourceScheme == file",
+          "group": "threadport@1"
+        }
       ],
       "editor/context": [
-        { "command": "threadport.addActiveFile", "when": "resourceScheme == file", "group": "threadport@1" },
-        { "command": "threadport.addSelectionToContext", "when": "resourceScheme == file && editorHasSelection", "group": "threadport@2" }
+        {
+          "command": "threadport.addActiveFile",
+          "when": "resourceScheme == file",
+          "group": "threadport@1"
+        },
+        {
+          "command": "threadport.addSelectionToContext",
+          "when": "resourceScheme == file && editorHasSelection",
+          "group": "threadport@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "threadport.openSessionPage",
+          "when": "false"
+        },
+        {
+          "command": "threadport.document.switchAgent",
+          "when": "false"
+        },
+        {
+          "command": "threadport.document.runInstruction",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\// && isWorkspaceTrusted"
+        },
+        {
+          "command": "threadport.document.stopAgent",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\//"
+        },
+        {
+          "command": "threadport.document.resume",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\// && isWorkspaceTrusted"
+        },
+        {
+          "command": "threadport.document.previewContext",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\//"
+        },
+        {
+          "command": "threadport.document.verify",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\// && isWorkspaceTrusted"
+        },
+        {
+          "command": "threadport.document.reviewChanges",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\//"
+        },
+        {
+          "command": "threadport.document.activate",
+          "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\//"
+        },
+        {
+          "command": "threadport.addActiveFile",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "threadport.addSelectionToContext",
+          "when": "resourceScheme == file && editorHasSelection"
+        }
       ]
     },
     "keybindings": [
@@ -96,7 +381,7 @@
         "command": "threadport.document.runInstruction",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
-        "when": "resourceScheme == threadport && editorTextFocus"
+        "when": "resourceScheme == threadport && resourcePath =~ /^\\/sessions\\// && editorTextFocus && isWorkspaceTrusted"
       }
     ],
     "configuration": {
@@ -104,11 +389,53 @@
       "properties": {
         "threadport.context.mode": {
           "type": "string",
-          "enum": ["minimal", "standard", "deep", "full"],
+          "enum": [
+            "minimal",
+            "standard",
+            "deep",
+            "full"
+          ],
           "default": "standard",
-          "description": "Context detail level used for agent handoffs."
+          "markdownDescription": "%config.context.mode%"
         }
       }
+    },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "threadport.mcp",
+        "label": "ThreadPort"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "threadport.chat",
+        "name": "threadport",
+        "fullName": "ThreadPort",
+        "description": "%chat.description%",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "context",
+            "description": "%chat.command.context%"
+          },
+          {
+            "name": "handoff",
+            "description": "%chat.command.handoff%"
+          }
+        ]
+      }
+    ]
+  },
+  "l10n": "./l10n",
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "%capabilities.virtualWorkspaces%"
+    },
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%capabilities.untrustedWorkspaces%",
+      "restrictedConfigurations": []
     }
   }
 }
