@@ -28,7 +28,7 @@ export function readConfig(cwd: string): ProjectConfig {
 export function setDefaultMode(cwd: string, mode: ContextMode): ProjectConfig {
   const config = readConfig(cwd);
   config.context.defaultMode = mode;
-  writeFileSync(join(cwd, '.threadport', 'config.json'), JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+  writeFileSync(join(cwd, '.threadport', 'config.json'), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   return config;
 }
 export function verificationCommands(cwd: string): VerificationCommand[] {

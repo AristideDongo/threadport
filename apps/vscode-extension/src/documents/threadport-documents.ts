@@ -445,7 +445,7 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
   private async addEditorContext(selectionOnly: boolean, resource?: Uri): Promise<void> {
     const editor = window.activeTextEditor;
     const target = selectionOnly ? editor?.document.uri : resource?.scheme === 'file' ? resource : editor?.document.uri;
-    if (!target || target.scheme !== 'file') throw new Error('Open or select a workspace file first.');
+    if (target?.scheme !== 'file') throw new Error('Open or select a workspace file first.');
     const folder = workspace.getWorkspaceFolder(target);
     if (!folder) throw new Error('The active file is outside the current workspace.');
     const runtime = this.projects.get(folder);
@@ -558,7 +558,7 @@ ${events.length ? events.map((event) => `- ${event.createdAt} · **${event.type}
 
   private targetDocumentUri(uri?: Uri): Uri {
     const target = uri ?? window.activeTextEditor?.document.uri;
-    if (!target || target.scheme !== 'threadport' || !target.path.startsWith('/sessions/')) throw new Error('Open a ThreadPort session document first.');
+    if (target?.scheme !== 'threadport' || !target.path.startsWith('/sessions/')) throw new Error('Open a ThreadPort session document first.');
     return target;
   }
 

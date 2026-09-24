@@ -76,6 +76,8 @@ export interface GitState {
   head: string | null;
   changedFiles: string[];
   diff: string;
+  /** Set when Git output was too large to read completely; the state cannot anchor verification. */
+  warning?: string;
 }
 
 export interface Snapshot {

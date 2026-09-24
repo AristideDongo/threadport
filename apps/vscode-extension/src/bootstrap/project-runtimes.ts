@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { WorkspaceFolder } from 'vscode';
 import { ThreadPort } from '../../../../src/application/threadport.js';
 import { GitCliReader } from '../../../../src/infrastructure/git.js';
 import { loadExcludes } from '../../../../src/infrastructure/privacy.js';
+import { ensureProjectDir } from '../../../../src/infrastructure/project.js';
 import { SqliteStore } from '../../../../src/infrastructure/sqlite-store.js';
 
 export interface ProjectRuntime {
@@ -31,7 +32,7 @@ export class ProjectRuntimes {
     const root = this.workspacePath(folder);
     const database = this.databasePath(folder);
     if (!existsSync(database) && !create) return null;
-    if (create) mkdirSync(join(root, '.threadport'), { recursive: true, mode: 0o700 });
+    if (create || existsSync(database)) ensureProjectDir(root);
 
     const store = new SqliteStore(database);
     const app = new ThreadPort(store, new GitCliReader(), root, loadExcludes(root));

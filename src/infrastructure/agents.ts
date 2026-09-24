@@ -9,7 +9,7 @@ export const adapters: readonly AgentAdapter[] = [
 
 export function adapterById(id: string, extra: readonly AgentAdapter[] = []): AgentAdapter {
   const adapter = [...adapters, ...extra].find((item) => item.id === id);
-  if (!adapter) throw new Error(`Unknown agent: ${id}. Available agents: ${adapters.map((item) => item.id).join(', ')}.`);
+  if (!adapter) throw new Error(`Unknown agent: ${id}. Available agents: ${[...adapters, ...extra].map((item) => item.id).join(', ')}.`);
   return adapter;
 }
 

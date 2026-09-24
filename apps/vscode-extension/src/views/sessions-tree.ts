@@ -20,13 +20,13 @@ interface MessageNode { readonly kind: 'message'; readonly label: string; readon
 export type SessionsNode = ProjectNode | SessionNode | DetailNode | UninitializedNode | MessageNode;
 
 export class SessionsTree implements TreeDataProvider<SessionsNode> {
-  readonly #changes = new EventEmitter<SessionsNode | undefined | null | void>();
-  readonly onDidChangeTreeData: Event<SessionsNode | undefined | null | void> = this.#changes.event;
+  readonly #changes = new EventEmitter<SessionsNode | undefined | null>();
+  readonly onDidChangeTreeData: Event<SessionsNode | undefined | null> = this.#changes.event;
 
   constructor(private readonly projects: ProjectRuntimes) {}
 
   refresh(): void {
-    this.#changes.fire();
+    this.#changes.fire(undefined);
   }
 
   getTreeItem(node: SessionsNode): TreeItem {

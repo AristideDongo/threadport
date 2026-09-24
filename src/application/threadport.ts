@@ -98,7 +98,7 @@ export class ThreadPort {
       (git?.changedFiles.filter((path) => excluded(path, this.patterns)).length ?? 0);
     const redactedFields = values.filter((value) => redact(value) !== value).length;
     return { redactedFields, excludedReferences, contextTokens: this.contextPack(mode, this.patterns).tokens,
-      warnings: ['Secret detection is heuristic. Review the context and export before sharing.', ...(git ? [] : ['Git state is unavailable; verification cannot be anchored to a commit.'])] };
+      warnings: ['Secret detection is heuristic. Review the context and export before sharing.', ...(git ? [] : ['Git state is unavailable; verification cannot be anchored to a commit.']), ...(git?.warning ? [git.warning] : [])] };
   }
   linkWork(kind: 'issue' | 'pr', url: string): WorkRecord {
     const link = githubWorkLink(kind, url);
@@ -176,7 +176,7 @@ export class ThreadPort {
   }
   completeTask(id: string): WorkRecord {
     const task = this.store.getRecord(id);
-    if (!task || task.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Task not found: ${id}`);
+    if (task?.kind !== 'task' || task.sessionId !== this.requireActive().id) throw new Error(`Task not found: ${id}`);
     const done: WorkRecord = { ...task, status: 'done' };
     this.store.updateRecord(done);
     this.event(task.sessionId, 'TaskCompleted', task.id);

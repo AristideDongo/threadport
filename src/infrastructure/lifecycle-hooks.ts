@@ -5,20 +5,12 @@ import { excluded, redact } from '../application/context.js';
 import { loadExcludes } from './privacy.js';
 import { readConfig } from './config.js';
 
+export { findProjectRoot } from './project.js';
+
 type Provider = 'claude' | 'codex';
 type JsonObject = Record<string, unknown>;
 function object(value: unknown): JsonObject | null { return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as JsonObject : null; }
 function string(value: unknown): string { return typeof value === 'string' ? value : ''; }
-
-export function findProjectRoot(start: string): string | null {
-  let current = resolve(start);
-  while (true) {
-    if (existsSync(join(current, '.threadport', 'threadport.sqlite'))) return current;
-    const parent = dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
-}
 
 export function installLifecycleHooks(root: string, provider: Provider): string {
   const target = provider === 'claude' ? '.claude/settings.local.json' : '.codex/hooks.json';
@@ -42,7 +34,7 @@ export function installLifecycleHooks(root: string, provider: Provider): string 
     hooks[event] = list;
   }
   config.hooks = hooks;
-  writeFileSync(path, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   const gitExclude = join(root, '.git', 'info', 'exclude');
   if (existsSync(gitExclude)) {
     const line = `/${target.replaceAll('\\', '/')}\n`;

@@ -1,16 +1,17 @@
-import { getEncoding } from 'js-tiktoken';
+import { getEncoding, type Tiktoken } from 'js-tiktoken';
 import { createHash } from 'node:crypto';
 import type { ContextMode, GitState, Session, WorkRecord } from '../domain/model.js';
 import type { SessionStore } from './ports.js';
 import { parseHandoff, parseVerification } from './continuity.js';
 
-const encoding = getEncoding('cl100k_base');
+// Building the encoder takes ~200 ms, so only commands that count tokens pay for it.
+let encoding: Tiktoken | undefined;
 const budgets: Record<ContextMode, number> = { minimal: 500, standard: 1500, deep: 4000, full: 10000 };
 export interface ContextSection { label: string; source: string; tokens: number; }
 export interface ContextPack { text: string; tokens: number; budget: number; included: ContextSection[]; omitted: string[]; excludedPaths: string[]; }
 
 function globRegex(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*').replace(/\?/g, '.');
+  const escaped = pattern.split('**').map((part) => part.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\?/g, '.')).join('.*');
   return new RegExp(`(^|/)${escaped}$`);
 }
 export function excluded(path: string, patterns: readonly string[]): boolean { return patterns.some((pattern) => globRegex(pattern).test(path)); }
@@ -21,18 +22,33 @@ export function safeDiff(diff: string, patterns: readonly string[]): string {
     return match ? !excluded(match[1] ?? '', patterns) && !excluded(match[2] ?? '', patterns) : !block.trim();
   }).join('').slice(0, 512_000);
 }
+/** Well-known credential formats that are redacted wherever they appear. */
+const secretPatterns: readonly RegExp[] = [
+  /sk-[A-Za-z0-9_-]{12,}/g, // OpenAI and Anthropic API keys
+  /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{12,}/g, // Stripe secret and restricted keys
+  /\bgh[pousr]_[A-Za-z0-9_]{12,}/g, // GitHub classic tokens
+  /\bgithub_pat_[A-Za-z0-9_]{20,}/g, // GitHub fine-grained tokens
+  /\bglpat-[A-Za-z0-9_-]{16,}/g, // GitLab personal access tokens
+  /\bnpm_[A-Za-z0-9]{30,}/g, // npm tokens
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, // AWS access key IDs
+  /\bAIza[A-Za-z0-9_-]{35}\b/g, // Google API keys
+  /\bxox[abposr]-[A-Za-z0-9-]{10,}/g, // Slack tokens
+  /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, // JSON Web Tokens
+];
+
 export function redact(value: string): string {
-  return value
-    .replace(/(sk-[A-Za-z0-9_-]{12,})/g, '[REDACTED]')
-    .replace(/(gh[pousr]_[A-Za-z0-9_]{12,})/g, '[REDACTED]')
+  return secretPatterns.reduce((text, pattern) => text.replace(pattern, '[REDACTED]'), value)
+    .replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s:/@]+:[^\s@/]+@/gi, '$1[REDACTED]@')
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]{16,}=*/g, '$1 [REDACTED]')
     .replace(/((?:api[_-]?key|secret|password|token)\s*[:=]\s*)["'][^"'\n]*["']/gi, '$1[REDACTED]')
     .replace(/((?:api[_-]?key|secret|password|token)\s*[:=]\s*)[^\s"']+/gi, '$1[REDACTED]')
     .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]');
 }
-function count(value: string): number { return encoding.encode(value).length; }
+function count(value: string): number { encoding ??= getEncoding('cl100k_base'); return encoding.encode(value).length; }
 function renderRecords(records: WorkRecord[]): string { return records.map((item) => `- [${item.status}] ${item.title}${item.body ? `: ${item.body}` : ''} (record:${item.id})`).join('\n'); }
 export function gitFingerprint(git: GitState | null, patterns: readonly string[] = []): string | null {
-  return git ? createHash('sha256').update(JSON.stringify([git.branch, git.head, git.changedFiles.filter((path) => !excluded(path, patterns)), safeDiff(git.diff, patterns)])).digest('hex').slice(0, 16) : null;
+  // A partial Git read cannot distinguish two states, so it must never mark a verification as current.
+  return git && !git.warning ? createHash('sha256').update(JSON.stringify([git.branch, git.head, git.changedFiles.filter((path) => !excluded(path, patterns)), safeDiff(git.diff, patterns)])).digest('hex').slice(0, 16) : null;
 }
 
 export function buildContextPack(store: SessionStore, session: Session, git: GitState | null, mode: ContextMode, patterns: readonly string[], forkId: string | null = null): ContextPack {
@@ -48,10 +64,10 @@ export function buildContextPack(store: SessionStore, session: Session, git: Git
     let high = value.length;
     while (low < high) {
       const middle = Math.ceil((low + high) / 2);
-      if (count(value.slice(0, middle) + '…') <= allowance) low = middle;
+      if (count(`${value.slice(0, middle)}…`) <= allowance) low = middle;
       else high = middle - 1;
     }
-    return low ? value.slice(0, low) + '…' : '';
+    return low ? `${value.slice(0, low)}…` : '';
   };
   const add = (label: string, source: string, raw: string): void => {
     const content = redact(raw).trim();
@@ -98,7 +114,7 @@ export function buildContextPack(store: SessionStore, session: Session, git: Git
   addItems('Current errors', 'work-records', errors.map((item) => renderRecords([item])));
   if (git) {
     const files = git.changedFiles.filter((file) => !excluded(file, patterns));
-    add('Git state', 'git:live', `Branch: ${git.branch ?? 'unknown'}\nHEAD: ${git.head ?? 'unknown'}\nChanged files:\n${files.map((file) => `- ${file}`).join('\n')}`);
+    add('Git state', 'git:live', `${git.warning ? `⚠ ${git.warning}\n` : ''}Branch: ${git.branch ?? 'unknown'}\nHEAD: ${git.head ?? 'unknown'}\nChanged files:\n${files.map((file) => `- ${file}`).join('\n')}`);
   }
   const handoffIndex = records.findLastIndex((item) => item.kind === 'handoff');
   if (handoffIndex >= 0) {

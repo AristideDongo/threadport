@@ -53,7 +53,7 @@ export class StructuredAgentRunner implements AgentRunner {
         let value: unknown;
         try {
           value = JSON.parse(line) as unknown;
-        } catch { process.stdout.write(line + '\n'); return; }
+        } catch { process.stdout.write(`${line}\n`); return; }
         for (const event of interpretAgentEvents(this.agentId, value)) this.onEvent(event);
       };
       child.stdout.setEncoding('utf8');
