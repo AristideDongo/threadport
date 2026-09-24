@@ -12,7 +12,9 @@
       "scripts/**",
       "apps/vscode-extension/src/**",
       "apps/vscode-extension/esbuild.mjs",
-      "apps/vscode-extension/test/**"
+      "apps/vscode-extension/test/**",
+      "website/*.js",
+      "!website/context-packs.js"
     ]
   },
   "formatter": {
