@@ -322,6 +322,7 @@ kbd {
 }
 
 .version-pill {
+  text-decoration: none;
   padding: 0 var(--s2);
   border: 1px solid var(--line);
   border-radius: 999px;

@@ -1,5 +1,5 @@
 // Behaviour shared by every page: language, theme, copy buttons, mobile menu, GitHub stars and npm version.
-import { translations } from './i18n.js?v=3';
+import { translations } from './i18n.js?v=4';
 
 const root = document.documentElement;
 export const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -146,13 +146,17 @@ function renderStars() {
     );
 }
 
+/** Cached for ten minutes per tab: fresh enough to show a new release soon after it ships. */
 async function cachedJson(key, url, pick) {
   const cached = stored(key, sessionStorage);
-  if (cached !== null) return JSON.parse(cached);
+  if (cached !== null) {
+    const entry = JSON.parse(cached);
+    if (entry && typeof entry === 'object' && 'at' in entry && Date.now() - entry.at < 10 * 60_000) return entry.value;
+  }
   const response = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error(`${url}: ${response.status}`);
   const value = pick(await response.json());
-  store(key, JSON.stringify(value), sessionStorage);
+  store(key, JSON.stringify({ at: Date.now(), value }), sessionStorage);
   return value;
 }
 
@@ -177,9 +181,11 @@ async function loadRemoteFacts() {
       (data) => data.version,
     );
     if (typeof version === 'string' && /^\d+\.\d+\.\d+/.test(version))
+      // The HTML ships the version current at deploy time; the registry keeps it right between deploys.
       for (const element of document.querySelectorAll('[data-npm-version]')) {
         element.textContent = `v${version}`;
-        element.hidden = false;
+        if (element instanceof HTMLAnchorElement)
+          element.href = `https://github.com/AristideDongo/threadport/releases/tag/v${version}`;
       }
   } catch {
     /* The version badge stays hidden. */
