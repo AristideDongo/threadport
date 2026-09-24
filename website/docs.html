@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Documentation: ThreadPort</title>
+    <meta
+      name="description"
+      content="Install ThreadPort, record a session, hand context from Claude Code to Codex, and configure privacy, verification, hooks, MCP and agent plugins."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:title" content="ThreadPort documentation" />
+    <meta property="og:description" content="Install, hand off between agents, and keep context private." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="docs.css" />
+    <script>
+      document.documentElement.classList.add('js');
+      try {
+        const theme = localStorage.getItem('threadport-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
+    <script type="module" src="docs.js"></script>
+  </head>
+  <body data-title-key="docs.title">
+    <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell header-row">
+        <a class="brand" href="index.html" aria-label="ThreadPort home">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="7" cy="16" r="4.5" />
+            <circle cx="25" cy="16" r="4.5" />
+            <path d="M11.5 16c3-7 6-7 9 0" />
+            <path d="M11.5 16c3 7 6 7 9 0" />
+          </svg>
+          <span>ThreadPort</span>
+        </a>
+        <nav aria-label="Primary" data-i18n-label="nav.label" id="site-menu" data-open="false">
+          <ul class="nav-links">
+            <li><a href="index.html#context" data-i18n="nav.context">Context</a></li>
+            <li><a href="index.html#handoff" data-i18n="nav.handoff">Handoff</a></li>
+            <li><a href="index.html#privacy" data-i18n="nav.privacy">Privacy</a></li>
+            <li><a href="index.html#vscode">VS Code</a></li>
+            <li><a href="docs.html" aria-current="page" data-i18n="nav.docs">Docs</a></li>
+          </ul>
+        </nav>
+        <div class="header-actions">
+          <button class="icon-button" type="button" data-action="language" aria-label="Afficher le site en français">
+            <span data-i18n="lang.switch">FR</span>
+          </button>
+          <button class="icon-button" type="button" data-action="theme" aria-label="Switch to dark theme">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-moon"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" /></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-sun">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
+          </button>
+          <a class="github-link" href="https://github.com/AristideDongo/threadport/stargazers">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" /></svg>
+            <span data-i18n="nav.star">Star</span>
+            <span class="star-count" data-stars hidden></span>
+          </a>
+          <button class="icon-button menu-button" type="button" data-action="menu" aria-expanded="false" aria-controls="site-menu" aria-label="Menu" data-i18n-label="nav.menu">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="shell docs-layout">
+      <aside class="docs-toc">
+        <nav aria-labelledby="toc-title">
+          <p id="toc-title" class="toc-title" data-i18n="docs.onThisPage">On this page</p>
+          <ol data-toc></ol>
+        </nav>
+      </aside>
+
+      <main id="main" tabindex="-1" class="docs-main">
+        <!-- English -->
+        <article data-lang="en" lang="en">
+          <h1>Documentation</h1>
+          <p class="docs-lede">
+            ThreadPort records what happens during a development task and hands it to the next AI agent as a short,
+            sourced context pack. This page covers the CLI (version 0.5 and later). The VS Code extension is coming soon.
+          </p>
+
+          <h2 id="en-install">Install</h2>
+          <p>You need <strong>Node.js 24 or newer</strong> and npm. Git is recommended: without it, ThreadPort still works but cannot take snapshots or tie verification to a commit.</p>
+          <pre><code>npm install -g threadport
+threadport --version
+threadport doctor</code></pre>
+          <p><code>doctor</code> shows your Node version, whether the project is initialized, and which agents (Claude Code, Codex) are installed.</p>
+
+          <h2 id="en-quick-start">Quick start</h2>
+          <p>Run these from the root of the project you want to track.</p>
+          <pre><code>threadport init
+threadport new "Fix token rotation"
+threadport task add "Write a concurrency test"
+threadport decision "Keep token IDs in Redis" -r "Shared revocation"
+threadport run claude</code></pre>
+          <p>When Claude exits, record anything its interface did not expose, then hand off:</p>
+          <pre><code>threadport note "The collision happens during simultaneous renewal"
+threadport check npm test
+threadport switch codex</code></pre>
+          <p>Codex starts with the objective, the open task, the decision and the failing test. Commands work from any subdirectory of the project.</p>
+
+          <h2 id="en-concepts">How it works</h2>
+          <dl class="docs-terms">
+            <dt>Session</dt>
+            <dd>One task with an objective. One session is active at a time; <code>open</code> and <code>resume</code> switch between them.</dd>
+            <dt>Records</dt>
+            <dd>Tasks, notes, errors, decisions, test results, constraints, relevant files and project memory. Each has an ID you can edit or delete.</dd>
+            <dt>Context pack</dt>
+            <dd>Markdown built from the session and the live Git state, ordered by priority and cut to a token budget. Every section names its source.</dd>
+            <dt>Runs</dt>
+            <dd>Each agent launch is recorded with its status and exit code. A run that stops unexpectedly is marked <code>interrupted</code>.</dd>
+          </dl>
+          <p>All of it lives in <code>.threadport/threadport.sqlite</code> inside your project. ThreadPort writes <code>.threadport/.gitignore</code> so Git ignores it.</p>
+
+          <h2 id="en-commands">Commands</h2>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+              <tbody>
+                <tr><td><code>init</code></td><td>Initialize the project in the current directory.</td></tr>
+                <tr><td><code>new "objective"</code>, <code>sessions</code>, <code>open &lt;id&gt;</code>, <code>resume &lt;id&gt;</code></td><td>Create, list and reactivate sessions. <code>resume</code> also prints the context.</td></tr>
+                <tr><td><code>rename</code>, <code>finish</code>, <code>delete</code></td><td>Rename, finish or permanently delete a session.</td></tr>
+                <tr><td><code>status</code>, <code>timeline</code>, <code>snapshot</code></td><td>Show the active session, its events, or capture the Git state.</td></tr>
+                <tr><td><code>task add</code>, <code>task done &lt;id&gt;</code>, <code>task list</code></td><td>Track tasks.</td></tr>
+                <tr><td><code>decision "title" -r "reason"</code>, <code>decisions</code></td><td>Record and list decisions.</td></tr>
+                <tr><td><code>note</code>, <code>error</code>, <code>constraint</code>, <code>memory</code></td><td>Record notes, issues, constraints, and knowledge shared by every session.</td></tr>
+                <tr><td><code>file &lt;path&gt;</code>, <code>files</code>, <code>artifact &lt;path&gt;</code></td><td>Mark relevant files and artifacts; <code>files</code> also lists Git changes.</td></tr>
+                <tr><td><code>record edit</code>, <code>record delete</code></td><td>Correct or remove a record.</td></tr>
+                <tr><td><code>check &lt;cmd&gt; [args]</code>, <code>test-result</code>, <code>command-log</code></td><td>Run a command and save its result, or record one run elsewhere.</td></tr>
+                <tr><td><code>summary</code>, <code>search "terms"</code></td><td>Summarize the session, or search every session locally.</td></tr>
+                <tr><td><code>context [--mode] [--explain]</code></td><td>Preview the context pack and its token budget.</td></tr>
+                <tr><td><code>run</code>, <code>switch</code>, <code>continue &lt;agent&gt;</code></td><td>Launch an agent with the context, or resume its native session.</td></tr>
+                <tr><td><code>verify</code>, <code>handoff</code>, <code>link</code></td><td>Verify work, review a handoff, link a GitHub issue or pull request.</td></tr>
+                <tr><td><code>export</code>, <code>import</code></td><td>Move a session to another copy of the project.</td></tr>
+                <tr><td><code>fork</code>, <code>compare</code></td><td>Try several agents in separate Git worktrees and compare them.</td></tr>
+                <tr><td><code>agents</code>, <code>doctor</code>, <code>config</code></td><td>List agents, check the environment, change settings.</td></tr>
+                <tr><td><code>hook</code>, <code>plugin</code>, <code>privacy</code></td><td>Lifecycle hooks, custom agents, privacy audit and scrub.</td></tr>
+                <tr><td><code>tui</code>, <code>serve</code>, <code>mcp</code></td><td>Terminal menu, local HTTP API, MCP server.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Run <code>threadport &lt;command&gt; --help</code> for every option.</p>
+
+          <h2 id="en-context">Context modes</h2>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th scope="col">Mode</th><th scope="col">Budget</th><th scope="col">Includes</th></tr></thead>
+              <tbody>
+                <tr><td><code>minimal</code></td><td>500 tokens</td><td>Objective, high-priority items and a few events.</td></tr>
+                <tr><td><code>standard</code></td><td>1,500 tokens</td><td>Summary, memory, constraints, tasks, errors, decisions, tests, notes, files and Git state as space allows.</td></tr>
+                <tr><td><code>deep</code></td><td>4,000 tokens</td><td>The same, with more events and a filtered Git diff.</td></tr>
+                <tr><td><code>full</code></td><td>10,000 tokens</td><td>The same selection with a larger budget.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>threadport context --mode deep --explain
+threadport config set-default-mode deep</code></pre>
+          <p>Token counts use <code>cl100k_base</code> as a reference and may differ from a given model's tokenizer. <code>--explain</code> lists the sources used and the sections that did not fit.</p>
+
+          <h2 id="en-agents">Running agents</h2>
+          <p><code>run</code> launches Claude Code or Codex in your terminal with the context file. <code>switch</code> does the same and records the handoff from the previous agent.</p>
+          <pre><code>threadport run codex --structured
+threadport status
+threadport continue codex</code></pre>
+          <p><code>--structured</code> runs the agent without its interactive interface and records the commands, messages, errors and provider session ID from its JSON stream. <code>continue</code> then resumes that native session.</p>
+
+          <h2 id="en-hooks">Automatic handoffs with hooks</h2>
+          <pre><code>threadport hook install claude
+threadport hook install codex</code></pre>
+          <p>These project-local hooks give the agent the context when it starts, record the files it edits, and write a summary when it stops. They never copy conversations, tool arguments or tool output. Codex asks you to trust new hooks with <code>/hooks</code>.</p>
+
+          <h2 id="en-verify">Verify and hand off</h2>
+          <p><code>verify</code> runs the <code>check</code>, <code>test</code> and <code>build</code> scripts of a Node project, or the commands in <code>.threadport/config.json</code>, and ties the result to the current Git state. Any file change makes the report stale.</p>
+          <pre><code>threadport link issue https://github.com/owner/repo/issues/42
+threadport verify
+threadport handoff draft --out .threadport/handoff.md
+threadport handoff save .threadport/handoff.md
+threadport handoff show</code></pre>
+
+          <h2 id="en-privacy">Privacy</h2>
+          <ul>
+            <li>API keys, GitHub, GitLab, npm, Stripe, AWS, Google and Slack tokens, JWTs, Bearer headers, URL credentials, private keys and <code>token=</code> or <code>password:</code> values are redacted before storage and before any handoff. Detection is heuristic.</li>
+            <li><code>.env</code>, <code>.env.*</code>, <code>*.pem</code>, <code>*.key</code>, <code>credentials.json</code> and <code>secrets/**</code> are excluded by default. Add patterns, one per line, in <code>.threadportignore</code>.</li>
+            <li>Snapshots store paths, not diff contents. A diff appears only in <code>deep</code> and <code>full</code> context.</li>
+          </ul>
+          <pre><code>threadport privacy audit --show-context
+threadport privacy scrub</code></pre>
+          <p><code>scrub</code> applies current rules to data recorded before them.</p>
+
+          <h2 id="en-config">Configuration</h2>
+          <p>Project settings live in <code>.threadport/config.json</code>:</p>
+          <pre><code>{
+  "context": { "defaultMode": "standard" },
+  "privacy": { "exclude": ["private/**"] },
+  "verification": {
+    "commands": [{ "command": "cargo", "args": ["test"] }]
+  }
+}</code></pre>
+
+          <h2 id="en-integrations">MCP, API and custom agents</h2>
+          <p><strong>MCP:</strong> <code>threadport mcp</code> serves the context, the saved handoff and session tools over stdio. <code>threadport mcp setup</code> prints the commands for Claude Code and Codex.</p>
+          <pre><code>claude mcp add --scope project threadport -- threadport mcp</code></pre>
+          <p><strong>HTTP API:</strong> <code>threadport serve --port 0</code> listens on <code>127.0.0.1</code> and prints a temporary Bearer token.</p>
+          <p><strong>Custom agents:</strong> describe any CLI agent in a JSON manifest. It runs only after you trust it.</p>
+          <pre><code>{
+  "version": 1,
+  "id": "my-agent",
+  "label": "My Agent",
+  "command": "my-agent",
+  "args": ["Read {contextFile} and continue the current task."],
+  "capabilities": ["filesystem_access", "git_access"]
+}</code></pre>
+          <pre><code>threadport plugin add ./agent.json
+threadport plugin trust my-agent</code></pre>
+
+          <h2 id="en-vscode">VS Code extension</h2>
+          <p>Coming soon to the Visual Studio Marketplace. It opens sessions as editable Markdown documents, shows tasks with checkboxes, runs the next instruction with <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, and offers an <code>@threadport</code> chat participant and an MCP server to VS Code agents. It uses the same <code>.threadport/</code> data as the CLI.</p>
+
+          <h2 id="en-troubleshooting">Troubleshooting</h2>
+          <dl class="docs-terms">
+            <dt>"Project is not initialized"</dt>
+            <dd>Run <code>threadport init</code> at the project root. Commands then work from any subdirectory.</dd>
+            <dt>An agent is not found</dt>
+            <dd>Run <code>threadport doctor</code>. The agent CLI must be on your <code>PATH</code>.</dd>
+            <dt>A project agent is refused</dt>
+            <dd>Review its manifest, then run <code>threadport plugin trust &lt;id&gt;</code>.</dd>
+            <dt>Verification says "stale"</dt>
+            <dd>A file changed after the checks ran. Run <code>threadport verify</code> again.</dd>
+          </dl>
+          <p class="docs-edit"><a href="https://github.com/AristideDongo/threadport/edit/main/website/docs.html" data-i18n="docs.edit">Edit this page on GitHub</a></p>
+        </article>
+
+        <!-- Français -->
+        <article data-lang="fr" lang="fr" hidden>
+          <h1>Documentation</h1>
+          <p class="docs-lede">
+            ThreadPort enregistre ce qui se passe pendant une tâche de développement et le transmet à l’agent IA suivant
+            sous la forme d’un pack de contexte court et sourcé. Cette page couvre la CLI (version 0.5 et suivantes).
+            L’extension VS Code arrive bientôt.
+          </p>
+
+          <h2 id="fr-install">Installation</h2>
+          <p>Il faut <strong>Node.js 24 ou plus récent</strong> et npm. Git est recommandé : sans lui, ThreadPort fonctionne, mais ne peut ni prendre d’instantanés ni rattacher une vérification à un commit.</p>
+          <pre><code>npm install -g threadport
+threadport --version
+threadport doctor</code></pre>
+          <p><code>doctor</code> affiche votre version de Node, indique si le projet est initialisé et quels agents (Claude Code, Codex) sont installés.</p>
+
+          <h2 id="fr-quick-start">Démarrage rapide</h2>
+          <p>Lancez ces commandes à la racine du projet à suivre.</p>
+          <pre><code>threadport init
+threadport new "Fix token rotation"
+threadport task add "Write a concurrency test"
+threadport decision "Keep token IDs in Redis" -r "Shared revocation"
+threadport run claude</code></pre>
+          <p>Quand Claude se termine, enregistrez ce que son interface n’a pas exposé, puis passez la main :</p>
+          <pre><code>threadport note "The collision happens during simultaneous renewal"
+threadport check npm test
+threadport switch codex</code></pre>
+          <p>Codex démarre avec l’objectif, la tâche ouverte, la décision et le test en échec. Les commandes fonctionnent depuis n’importe quel sous-dossier du projet.</p>
+
+          <h2 id="fr-concepts">Fonctionnement</h2>
+          <dl class="docs-terms">
+            <dt>Session</dt>
+            <dd>Une tâche avec un objectif. Une seule session est active à la fois ; <code>open</code> et <code>resume</code> permettent d’en changer.</dd>
+            <dt>Enregistrements</dt>
+            <dd>Tâches, notes, erreurs, décisions, résultats de tests, contraintes, fichiers pertinents et mémoire du projet. Chacun a un identifiant, modifiable ou supprimable.</dd>
+            <dt>Pack de contexte</dt>
+            <dd>Du Markdown construit à partir de la session et de l’état Git en direct, trié par priorité et limité à un budget de tokens. Chaque section indique sa source.</dd>
+            <dt>Exécutions</dt>
+            <dd>Chaque lancement d’agent est enregistré avec son statut et son code de sortie. Une exécution arrêtée brutalement est marquée <code>interrupted</code>.</dd>
+          </dl>
+          <p>Tout est stocké dans <code>.threadport/threadport.sqlite</code>, dans votre projet. ThreadPort écrit <code>.threadport/.gitignore</code> pour que Git l’ignore.</p>
+
+          <h2 id="fr-commands">Commandes</h2>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th scope="col">Commande</th><th scope="col">Rôle</th></tr></thead>
+              <tbody>
+                <tr><td><code>init</code></td><td>Initialise le projet dans le dossier courant.</td></tr>
+                <tr><td><code>new "objectif"</code>, <code>sessions</code>, <code>open &lt;id&gt;</code>, <code>resume &lt;id&gt;</code></td><td>Crée, liste et réactive des sessions. <code>resume</code> affiche aussi le contexte.</td></tr>
+                <tr><td><code>rename</code>, <code>finish</code>, <code>delete</code></td><td>Renomme, termine ou supprime définitivement une session.</td></tr>
+                <tr><td><code>status</code>, <code>timeline</code>, <code>snapshot</code></td><td>Affiche la session active, ses événements, ou capture l’état Git.</td></tr>
+                <tr><td><code>task add</code>, <code>task done &lt;id&gt;</code>, <code>task list</code></td><td>Suit les tâches.</td></tr>
+                <tr><td><code>decision "titre" -r "raison"</code>, <code>decisions</code></td><td>Enregistre et liste les décisions.</td></tr>
+                <tr><td><code>note</code>, <code>error</code>, <code>constraint</code>, <code>memory</code></td><td>Enregistre des notes, des problèmes, des contraintes et des connaissances partagées par toutes les sessions.</td></tr>
+                <tr><td><code>file &lt;chemin&gt;</code>, <code>files</code>, <code>artifact &lt;chemin&gt;</code></td><td>Marque des fichiers et artefacts pertinents ; <code>files</code> liste aussi les changements Git.</td></tr>
+                <tr><td><code>record edit</code>, <code>record delete</code></td><td>Corrige ou supprime un enregistrement.</td></tr>
+                <tr><td><code>check &lt;cmd&gt; [args]</code>, <code>test-result</code>, <code>command-log</code></td><td>Lance une commande et enregistre son résultat, ou consigne une commande lancée ailleurs.</td></tr>
+                <tr><td><code>summary</code>, <code>search "termes"</code></td><td>Résume la session, ou recherche localement dans toutes les sessions.</td></tr>
+                <tr><td><code>context [--mode] [--explain]</code></td><td>Affiche le pack de contexte et son budget de tokens.</td></tr>
+                <tr><td><code>run</code>, <code>switch</code>, <code>continue &lt;agent&gt;</code></td><td>Lance un agent avec le contexte, ou reprend sa session native.</td></tr>
+                <tr><td><code>verify</code>, <code>handoff</code>, <code>link</code></td><td>Vérifie le travail, relit un handoff, lie une issue ou une pull request GitHub.</td></tr>
+                <tr><td><code>export</code>, <code>import</code></td><td>Transfère une session vers une autre copie du projet.</td></tr>
+                <tr><td><code>fork</code>, <code>compare</code></td><td>Essaie plusieurs agents dans des worktrees Git séparés et les compare.</td></tr>
+                <tr><td><code>agents</code>, <code>doctor</code>, <code>config</code></td><td>Liste les agents, vérifie l’environnement, modifie les réglages.</td></tr>
+                <tr><td><code>hook</code>, <code>plugin</code>, <code>privacy</code></td><td>Hooks de cycle de vie, agents personnalisés, audit et nettoyage de confidentialité.</td></tr>
+                <tr><td><code>tui</code>, <code>serve</code>, <code>mcp</code></td><td>Menu en terminal, API HTTP locale, serveur MCP.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Lancez <code>threadport &lt;commande&gt; --help</code> pour voir toutes les options.</p>
+
+          <h2 id="fr-context">Modes de contexte</h2>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th scope="col">Mode</th><th scope="col">Budget</th><th scope="col">Contenu</th></tr></thead>
+              <tbody>
+                <tr><td><code>minimal</code></td><td>500 tokens</td><td>Objectif, éléments prioritaires et quelques événements.</td></tr>
+                <tr><td><code>standard</code></td><td>1 500 tokens</td><td>Résumé, mémoire, contraintes, tâches, erreurs, décisions, tests, notes, fichiers et état Git selon la place.</td></tr>
+                <tr><td><code>deep</code></td><td>4 000 tokens</td><td>La même chose, avec plus d’événements et un diff Git filtré.</td></tr>
+                <tr><td><code>full</code></td><td>10 000 tokens</td><td>La même sélection avec un budget plus large.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>threadport context --mode deep --explain
+threadport config set-default-mode deep</code></pre>
+          <p>Les tokens sont comptés avec <code>cl100k_base</code> comme référence et peuvent différer du tokenizer d’un modèle donné. <code>--explain</code> liste les sources utilisées et les sections qui n’ont pas tenu.</p>
+
+          <h2 id="fr-agents">Lancer des agents</h2>
+          <p><code>run</code> lance Claude Code ou Codex dans votre terminal avec le fichier de contexte. <code>switch</code> fait de même et enregistre le passage de relais depuis l’agent précédent.</p>
+          <pre><code>threadport run codex --structured
+threadport status
+threadport continue codex</code></pre>
+          <p><code>--structured</code> lance l’agent sans son interface interactive et enregistre les commandes, messages, erreurs et l’identifiant de session de son flux JSON. <code>continue</code> reprend ensuite cette session native.</p>
+
+          <h2 id="fr-hooks">Passages de relais automatiques</h2>
+          <pre><code>threadport hook install claude
+threadport hook install codex</code></pre>
+          <p>Ces hooks locaux au projet donnent le contexte à l’agent au démarrage, enregistrent les fichiers qu’il modifie et écrivent un résumé à la fin. Ils ne copient jamais les conversations, les arguments ni la sortie des outils. Codex vous demande d’approuver les nouveaux hooks avec <code>/hooks</code>.</p>
+
+          <h2 id="fr-verify">Vérifier et passer la main</h2>
+          <p><code>verify</code> lance les scripts <code>check</code>, <code>test</code> et <code>build</code> d’un projet Node, ou les commandes de <code>.threadport/config.json</code>, et rattache le résultat à l’état Git actuel. Toute modification de fichier rend le rapport obsolète.</p>
+          <pre><code>threadport link issue https://github.com/owner/repo/issues/42
+threadport verify
+threadport handoff draft --out .threadport/handoff.md
+threadport handoff save .threadport/handoff.md
+threadport handoff show</code></pre>
+
+          <h2 id="fr-privacy">Confidentialité</h2>
+          <ul>
+            <li>Les clés d’API, tokens GitHub, GitLab, npm, Stripe, AWS, Google et Slack, JWT, en-têtes Bearer, identifiants dans les URL, clés privées et valeurs <code>token=</code> ou <code>password:</code> sont masqués avant l’enregistrement et avant tout passage de relais. La détection est heuristique.</li>
+            <li><code>.env</code>, <code>.env.*</code>, <code>*.pem</code>, <code>*.key</code>, <code>credentials.json</code> et <code>secrets/**</code> sont exclus par défaut. Ajoutez vos motifs, un par ligne, dans <code>.threadportignore</code>.</li>
+            <li>Les instantanés stockent les chemins, pas le contenu des diffs. Un diff n’apparaît qu’en contexte <code>deep</code> et <code>full</code>.</li>
+          </ul>
+          <pre><code>threadport privacy audit --show-context
+threadport privacy scrub</code></pre>
+          <p><code>scrub</code> applique les règles actuelles aux données enregistrées avant elles.</p>
+
+          <h2 id="fr-config">Configuration</h2>
+          <p>Les réglages du projet sont dans <code>.threadport/config.json</code> :</p>
+          <pre><code>{
+  "context": { "defaultMode": "standard" },
+  "privacy": { "exclude": ["private/**"] },
+  "verification": {
+    "commands": [{ "command": "cargo", "args": ["test"] }]
+  }
+}</code></pre>
+
+          <h2 id="fr-integrations">MCP, API et agents personnalisés</h2>
+          <p><strong>MCP :</strong> <code>threadport mcp</code> sert le contexte, le handoff enregistré et les outils de session via stdio. <code>threadport mcp setup</code> affiche les commandes pour Claude Code et Codex.</p>
+          <pre><code>claude mcp add --scope project threadport -- threadport mcp</code></pre>
+          <p><strong>API HTTP :</strong> <code>threadport serve --port 0</code> écoute sur <code>127.0.0.1</code> et affiche un token Bearer temporaire.</p>
+          <p><strong>Agents personnalisés :</strong> décrivez n’importe quel agent en CLI dans un manifeste JSON. Il ne s’exécute qu’après votre approbation.</p>
+          <pre><code>{
+  "version": 1,
+  "id": "my-agent",
+  "label": "My Agent",
+  "command": "my-agent",
+  "args": ["Read {contextFile} and continue the current task."],
+  "capabilities": ["filesystem_access", "git_access"]
+}</code></pre>
+          <pre><code>threadport plugin add ./agent.json
+threadport plugin trust my-agent</code></pre>
+
+          <h2 id="fr-vscode">Extension VS Code</h2>
+          <p>Bientôt sur le Visual Studio Marketplace. Elle ouvre les sessions comme des documents Markdown modifiables, affiche les tâches avec des cases à cocher, lance la prochaine instruction avec <kbd>Ctrl</kbd> + <kbd>Entrée</kbd>, et propose un participant de chat <code>@threadport</code> et un serveur MCP aux agents de VS Code. Elle utilise les mêmes données <code>.threadport/</code> que la CLI.</p>
+
+          <h2 id="fr-troubleshooting">Dépannage</h2>
+          <dl class="docs-terms">
+            <dt>« Project is not initialized »</dt>
+            <dd>Lancez <code>threadport init</code> à la racine du projet. Les commandes fonctionnent ensuite depuis n’importe quel sous-dossier.</dd>
+            <dt>Un agent est introuvable</dt>
+            <dd>Lancez <code>threadport doctor</code>. La CLI de l’agent doit être dans votre <code>PATH</code>.</dd>
+            <dt>Un agent du projet est refusé</dt>
+            <dd>Relisez son manifeste, puis lancez <code>threadport plugin trust &lt;id&gt;</code>.</dd>
+            <dt>La vérification est « stale »</dt>
+            <dd>Un fichier a changé après les vérifications. Relancez <code>threadport verify</code>.</dd>
+          </dl>
+          <p class="docs-edit"><a href="https://github.com/AristideDongo/threadport/edit/main/website/docs.html">Modifier cette page sur GitHub</a></p>
+        </article>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div class="shell footer-row">
+        <p data-i18n="footer.license">ThreadPort is open source under the MIT license.</p>
+        <p class="footer-links">
+          <a href="index.html" data-i18n="docs.home">Home</a>
+          <a href="https://github.com/AristideDongo/threadport/issues" data-i18n="footer.issues">Report an issue</a>
+        </p>
+      </div>
+    </footer>
+    <p class="visually-hidden" role="status" aria-live="polite" data-copy-status></p>
+  </body>
+</html>
