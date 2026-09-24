@@ -10,7 +10,7 @@
 
 **One context. Any AI agent.**
 
-[Website](https://aristidedongo.github.io/threadport/) · [npm](https://www.npmjs.com/package/threadport)
+[Website](https://threadport-io.vercel.app) · [Documentation](https://threadport-io.vercel.app/docs) · [npm](https://www.npmjs.com/package/threadport)
 
 ThreadPort keeps development task context in your project and carries it between Claude Code, Codex, and locally configured agents. Each session tracks a timeline, decisions, tasks, notes, test results, agent runs, and Git snapshots. Data is stored in a local SQLite database.
 
