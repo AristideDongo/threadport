@@ -25,11 +25,14 @@ Run `npm run build` after code changes. To work directly with TypeScript, use `n
 ## Checks
 
 ```bash
-npm run check
+npm run check          # TypeScript, Biome lint, architecture boundaries
 npm test
+npm run test:coverage  # V8 coverage for src/, as run on Linux CI
 npm run build
 npm audit --audit-level=moderate
 ```
+
+CLI commands live in `src/interfaces/cli/commands/`, grouped by area; `runtime.ts` holds the shared project lookup and helpers. `main.ts` only hides the `node:sqlite` experimental warning before loading `program.ts`.
 
 CI runs these checks on Linux, macOS, and Windows. It keeps a stable `verify` status for branch protection. A maintainer with configured agent accounts can also run `npm run test:agents:live -- claude` or `npm run test:agents:live -- codex`; this makes a small live request to catch provider JSON format changes.
 

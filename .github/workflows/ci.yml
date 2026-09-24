@@ -24,7 +24,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run check:extension
-      - run: npm test
+      - name: Test
+        run: npm run ${{ runner.os == 'Linux' && 'test:coverage' || 'test' }}
       - run: npm run build
       - run: npm run build --workspace threadport-vscode
       - name: Package VS Code extension

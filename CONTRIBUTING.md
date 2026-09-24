@@ -14,7 +14,7 @@ Use Node.js 24 or newer and npm. Clone the repository, then run:
 
 ```bash
 npm ci
-npm run check
+npm run check   # includes Biome lint
 npm test
 npm run build
 ```
