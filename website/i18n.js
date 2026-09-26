@@ -47,7 +47,7 @@ export const translations = {
       'ThreadPort garde votre tâche dans le projet : décisions, tâches ouvertes, résultats de tests et état Git. Quand vous passez de Claude Code à Codex, le nouvel agent reprend là où le précédent s’est arrêté.',
     'hero.installLabel': 'Installer la CLI (Node.js 24+)',
     'hero.cli': 'CLI disponible sur npm',
-    'hero.vscode': 'Extension VS Code bientôt disponible',
+    'hero.vscode': 'Extension VS Code sur le Marketplace',
     'hero.demoCaption':
       'Claude Code enregistre une décision et un test en échec. ThreadPort transmet ce contexte à Codex, qui démarre avec l’objectif, la tâche ouverte et le test en échec.',
     'context.title': 'Ce que reçoit l’agent suivant',
@@ -92,11 +92,11 @@ export const translations = {
       'Un petit manifeste JSON, exécuté seulement après l’avoir approuvé avec <code>threadport plugin trust</code>',
     'agents.mcpName': 'Clients MCP',
     'agents.mcp': '<code>threadport mcp</code> expose le contexte, le handoff et les outils de session via stdio',
-    'vscode.status': 'Bientôt sur le Visual Studio Marketplace',
+    'vscode.status': 'Disponible sur le Visual Studio Marketplace',
     'vscode.title': 'Le même fil, dans VS Code',
     'vscode.body':
       'L’extension ouvre chaque session comme un document Markdown modifiable. Écrivez la prochaine instruction, appuyez sur <kbd>Ctrl</kbd> + <kbd>Entrée</kbd>, et ThreadPort lance l’agent dans un terminal avec le contexte à jour.',
-    'vscode.cta': 'Suivre les versions sur GitHub',
+    'vscode.cta': 'Installer depuis le Marketplace',
     'vscode.f1': 'Sessions, tâches et décisions dans la barre d’activité, avec des cases à cocher pour les tâches',
     'vscode.f2': 'Passer de Claude Code à Codex depuis le document de session',
     'vscode.f3': 'Ajouter au contexte un fichier ou une sélection depuis l’éditeur',

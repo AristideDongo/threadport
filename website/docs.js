@@ -1,4 +1,4 @@
-import { onLanguageChange, start, t } from './shared.js?v=4';
+import { onLanguageChange, start, t } from './shared.js?v=5';
 
 const toc = document.querySelector('[data-toc]');
 let observer;

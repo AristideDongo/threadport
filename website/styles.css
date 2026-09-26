@@ -13,6 +13,9 @@
   --thread-soft: #d3ecee;
   --port: #8a5200;
   --port-dot: #f0a202;
+  /* The logo's two ends: where the thread leaves one agent and where it arrives. */
+  --thread-start: #1fa3a3;
+  --thread-end: #845ef7;
   --fail: #b43f16;
   --ok: #1d7a46;
   --term-bg: #172033;
@@ -57,6 +60,8 @@
     --thread-soft: #173a44;
     --port: #f5b83d;
     --port-dot: #f5b83d;
+    --thread-start: #3ecfcf;
+    --thread-end: #9b7bff;
     --fail: #ff9a76;
     --ok: #7fd6a3;
     --term-bg: #0a101a;
@@ -75,6 +80,8 @@
   --thread-soft: #173a44;
   --port: #f5b83d;
   --port-dot: #f5b83d;
+  --thread-start: #3ecfcf;
+  --thread-end: #9b7bff;
   --fail: #ff9a76;
   --ok: #7fd6a3;
   --term-bg: #0a101a;
@@ -185,8 +192,7 @@ kbd {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
 
@@ -209,17 +215,13 @@ kbd {
 .brand-mark {
   width: 1.75rem;
   height: 1.75rem;
-  fill: none;
-  stroke-width: 2.25;
-  stroke-linecap: round;
+  border-radius: 6px;
 }
 
-.brand-mark circle {
-  stroke: var(--ink);
-}
-
-.brand-mark path {
-  stroke: var(--thread);
+/* The logo has its own dark tile; a hairline keeps its edge visible on the dark theme. */
+.brand-mark,
+.vscode-heading img {
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 .nav-links {
@@ -548,11 +550,13 @@ kbd {
 .thread::before {
   left: calc(10% - 0.375rem);
   top: -0.375rem;
+  background: var(--thread-start);
 }
 
 .thread::after {
   right: calc(10% - 0.375rem);
   bottom: -0.375rem;
+  background: var(--thread-end);
 }
 
 .thread-label {
@@ -998,13 +1002,42 @@ html:not(.js) .steps li::before {
 /* VS Code */
 .vscode .status-line {
   margin: 0 0 var(--s3);
-  color: var(--port);
+  color: var(--ok);
   font-weight: 600;
   font-size: 0.9375rem;
 }
 
-.vscode .button {
+.vscode-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.vscode-heading img {
+  flex: none;
+  border-radius: 12px;
+}
+
+.vscode-install {
   margin-top: var(--s5);
+  display: grid;
+  gap: var(--s3);
+  justify-items: start;
+}
+
+.vscode-install {
+  justify-items: stretch;
+  max-width: 30rem;
+}
+
+.vscode-install .button {
+  justify-self: start;
+}
+
+/* The command is long: it wraps rather than scrolling or widening the page. */
+.vscode-install .install-box code {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .feature-list {
@@ -1082,8 +1115,8 @@ main {
 }
 
 .page-thread .port.is-reached {
-  background: var(--port-dot);
-  border-color: var(--port-dot);
+  background: var(--thread-end);
+  border-color: var(--thread-end);
   scale: 1.15;
 }
 
