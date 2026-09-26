@@ -6,7 +6,7 @@
     <title>ThreadPort: one context, any AI coding agent</title>
     <meta
       name="description"
-      content="ThreadPort keeps your task context in the project and hands it between Claude Code, Codex and other CLI agents. Available as a CLI; VS Code extension coming soon."
+      content="ThreadPort keeps your task context in the project and hands it between Claude Code, Codex and other CLI agents. Available as a CLI on npm and as a VS Code extension."
     />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f0f2f4" media="(prefers-color-scheme: light)" />
@@ -33,11 +33,12 @@
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="media/threadport.png" type="image/png" />
+    <link rel="apple-touch-icon" href="media/threadport.png" />
     <link rel="preload" href="fonts/bricolage-grotesque-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="fonts/fonts.css?v=4" />
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="fonts/fonts.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=5" />
     <script>
       // Applied before first paint so a stored theme never flashes the other one.
       document.documentElement.classList.add('js');
@@ -46,7 +47,7 @@
         if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
       } catch {}
     </script>
-    <script type="module" src="main.js?v=4"></script>
+    <script type="module" src="main.js?v=5"></script>
   </head>
   <body data-title-key="meta.title">
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
@@ -54,12 +55,7 @@
     <header class="site-header">
       <div class="shell header-row">
         <a class="brand" href="#top" aria-label="ThreadPort home">
-          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="7" cy="16" r="4.5" />
-            <circle cx="25" cy="16" r="4.5" />
-            <path d="M11.5 16c3-7 6-7 9 0" />
-            <path d="M11.5 16c3 7 6 7 9 0" />
-          </svg>
+          <img class="brand-mark" src="media/threadport.png" width="28" height="28" alt="" />
           <span>ThreadPort</span>
         </a>
         <nav aria-label="Primary" data-i18n-label="nav.label" id="site-menu" data-open="false">
@@ -116,7 +112,9 @@
               <span class="status status-live" aria-hidden="true"></span><span data-i18n="hero.cli">CLI available on npm</span>
               <a class="version-pill" data-npm-version href="https://github.com/AristideDongo/threadport/releases/tag/v0.5.0">v0.5.0</a>
             </li>
-            <li><span class="status status-soon" aria-hidden="true"></span><span data-i18n="hero.vscode">VS Code extension coming soon</span></li>
+            <li>
+              <span class="status status-live" aria-hidden="true"></span><a href="https://marketplace.visualstudio.com/items?itemName=aristideghost.threadport-vscode" data-i18n="hero.vscode">VS Code extension on the Marketplace</a>
+            </li>
           </ul>
         </div>
 
@@ -294,13 +292,22 @@ threadport check npm test</code></pre>
 
       <section class="section shell vscode" id="vscode" aria-labelledby="vscode-title">
         <div class="section-intro">
-          <p class="status-line"><span class="status status-soon" aria-hidden="true"></span><span data-i18n="vscode.status">Coming soon to the Visual Studio Marketplace</span></p>
-          <h2 id="vscode-title" data-i18n="vscode.title">The same thread, inside VS Code</h2>
+          <p class="status-line"><span class="status status-live" aria-hidden="true"></span><span data-i18n="vscode.status">Available on the Visual Studio Marketplace</span></p>
+          <div class="vscode-heading">
+            <img src="media/threadport.png" width="56" height="56" alt="" />
+            <h2 id="vscode-title" data-i18n="vscode.title">The same thread, inside VS Code</h2>
+          </div>
           <p data-i18n="vscode.body">
             The extension opens each session as a Markdown document you edit in place. Write the next instruction, press
             <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, and ThreadPort starts the agent in a terminal with the current context.
           </p>
-          <a class="button" href="https://github.com/AristideDongo/threadport/releases" data-i18n="vscode.cta">Follow releases on GitHub</a>
+          <div class="vscode-install">
+            <a class="button" href="https://marketplace.visualstudio.com/items?itemName=aristideghost.threadport-vscode" data-i18n="vscode.cta">Install from the Marketplace</a>
+            <div class="install-box">
+              <code>code --install-extension aristideghost.threadport-vscode</code>
+              <button type="button" class="copy-button" data-copy="code --install-extension aristideghost.threadport-vscode" data-i18n="copy">Copy</button>
+            </div>
+          </div>
         </div>
         <ul class="feature-list">
           <li data-i18n="vscode.f1">Sessions, tasks and decisions in the Activity Bar, with checkboxes for tasks</li>

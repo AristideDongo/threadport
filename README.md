@@ -1,8 +1,11 @@
+<p align="center"><img src="apps/vscode-extension/media/threadport.png" width="96" height="96" alt="ThreadPort logo" /></p>
+
 # ThreadPort
 
 [![npm version](https://img.shields.io/npm/v/threadport.svg)](https://www.npmjs.com/package/threadport)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/aristideghost.threadport-vscode?label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=aristideghost.threadport-vscode)
 
-> The VS Code extension is under active development in [`apps/vscode-extension`](apps/vscode-extension). Its preview supports persistent sessions as native editable VS Code documents, relevant files, decisions, run history, multi-root workspaces, and terminal-backed agent switching. See [the extension design](docs/vscode-extension.md).
+> **The VS Code extension is available** on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=aristideghost.threadport-vscode): `code --install-extension aristideghost.threadport-vscode`. It opens sessions as editable documents, tracks tasks, switches agents in a terminal, and shares the session with VS Code chat through MCP. Source: [`apps/vscode-extension`](apps/vscode-extension); design: [the extension design](docs/vscode-extension.md).
 
 [![CI](https://github.com/AristideDongo/threadport/actions/workflows/ci.yml/badge.svg)](https://github.com/AristideDongo/threadport/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/AristideDongo/threadport?style=flat&logo=github)](https://github.com/AristideDongo/threadport/stargazers)

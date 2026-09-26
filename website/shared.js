@@ -1,5 +1,5 @@
 // Behaviour shared by every page: language, theme, copy buttons, mobile menu, GitHub stars and npm version.
-import { translations } from './i18n.js?v=4';
+import { translations } from './i18n.js?v=5';
 
 const root = document.documentElement;
 export const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
