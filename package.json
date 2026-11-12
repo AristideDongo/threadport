@@ -55,12 +55,12 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^14.0.0",
     "js-tiktoken": "^1.0.21",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
     "@types/node": "^24.13.6",
-    "@vitest/coverage-v8": "5.0.1",
+    "@vitest/coverage-v8": "5.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^5.0.1"
